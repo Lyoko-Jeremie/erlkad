@@ -15,15 +15,15 @@ start(Args) ->
 %% internal API
 %%
 bootstrap({Addr, Port} = G) ->
-	case kad_api:ping(<<>>, Addr, Port, true) of
-		{ok, Id} ->
-			% find self
-			kad_api:find_node(kad_node:id());
-		{error, Reason} ->
-			% pint the gateway error
-			?LOG("bootstrap ping the gateway error:~p\n", [Reason]),
-			{error, Reason}
-	end;		
+    case kad_api:ping(<<>>, Addr, Port, true) of
+	{ok, Id} ->
+	    % find self
+	    kad_api:find_node(kad_node:id(), false, true);	    
+	{error, Reason} ->
+	    % pint the gateway error
+	    ?LOG("bootstrap ping the gateway error:~p\n", [Reason]),
+	    {error, Reason}
+    end;		
 			
 bootstrap([_|_] = G) ->
 	?NOT_IMPL.

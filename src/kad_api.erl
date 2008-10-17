@@ -7,8 +7,24 @@
 -include("kad.hrl").
 -include("kad_protocol.hrl").
 
+-export([bootstrap/1]).
 -export([ping/4, find_node/2, find_value/3, store/5, delete/2]).
 -export([wait_rsp/1, wait_rsp_iter/2]).
+
+%% @doc bootstrap the kad
+bootstrap({Addr, Port} = G) ->
+    case kad_api:ping(<<>>, Addr, Port, true) of
+	{ok, Id} ->
+	    % find self
+	    kad_api:find_node(kad_node:id(), false, true);	    
+	{error, Reason} ->
+	    % pint the gateway error
+	    ?LOG("bootstrap ping the gateway error:~p\n", [Reason]),
+	    {error, Reason}
+    end;		
+			
+bootstrap([_|_] = _G) ->
+    ?NOT_IMPL.
 
 
 %% @spec ping(identify()) -> ok | {error, Reason}
@@ -40,13 +56,13 @@ find_node(Node, Sync) when is_binary(Node) ->
     {N, Closest} = kad_routing:closest(Node, ?A),
     ?LOG("get ~p Closest Node~n", [N]),
     {Success, Failed} = send_find_to_nodes(Closest, ?FIND_NODE, Node),
-	% process the contacts which send request error
+    % process the contacts which send request error
     process_req_error(Failed),
 	if Sync ->
-		% wait the response
-		wait_rsp_iter(Node, kad_searchlist:new(Node)),
-		true ->
-			ok
+	    % wait the response
+		wait_rsp_iter(Node, kad_searchlist:new(Node));
+	   true ->
+		ok
 	end.
 
 %% @spec find_value(key(), integer()) -> {ok, Value} | {error, Reason}
@@ -149,7 +165,7 @@ wait_rsp(?STORE_RSP) ->
 wait_rsp_iter(Target, SearchList) ->
     receive 
 	{Parent, ?FIND_NODE_RSP, Msg} ->
-		case find_iter_stop(Msg, SearchList) of
+	    case find_iter_stop(Msg, SearchList) of
 			true ->	% select the k un-queried nodes send find_node msg
 				KNodes = kad_searchlist:closest(?K, true, SearchList),
 				{Lives, Failed} = send_find_to_nodes(KNodes, ?FIND_NODE, Target),
@@ -175,21 +191,21 @@ find_iter_stop(Nodes, SearchList) ->
 
 
 wait_k_rsp(Cmd, N, SearchList) ->	
-	wait_k_rsp(Cmd, N, []).
+    wait_k_rsp(Cmd, N, []).
 
 wait_k_rsp(Cmd, 0, Acc) ->
-	Acc;
+    Acc;
 wait_k_rsp(Cmd, N, Acc) ->
-	receive 
-		{_Parent, Cmd, Data} ->
-			wait_k_rsp(Cmd, N - 1, 
+    receive 
+	{_Parent, Cmd, Data} ->
+	    wait_k_rsp(Cmd, N - 1, [Data | Acc])
     after 100000 ->
 	    {error, timeout}
     end;
 
 %% add the nodes to search list
 add_searchlist(Nodes, Search) ->
-	FAdd = fun(#kad_contact{} = Node, List) ->
-				kad_searchlist:add(Node, List)
-				end,
-	lists:foldl(FAdd, Search, Nodes).
+FAdd = fun(#kad_contact{} = Node, List) ->
+	       kad_searchlist:add(Node, List)
+       end,
+    lists:foldl(FAdd, Search, Nodes).
