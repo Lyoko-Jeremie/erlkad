@@ -16,11 +16,11 @@
                             terminate/2, code_change/3]).
 
 -record(state, {
-		size = 0,   % the contacts count
-        buckets,    % the buckets 
-		actives = [],% the bucket list which has contacts
-		laccess     % last access time
-		}).
+	  size = 0,   % the contacts count
+	  buckets,    % the buckets 
+	  actives = [],% the bucket list which has contacts
+	  laccess     % last access time
+	 }).
 
 -define(SERVER, ?MODULE).
 
@@ -72,11 +72,9 @@ random_refresh_bucket() ->
 	 [] -> % don't has nodes in this bucket
 	     ok;
 	 [Node|_] -> % do find for this node
-	     kad_api:find_node(Node, false)
+	     kad_api:find_node(Node, false, true)
      end
-     || I <- lists:duplicate(?NODE_ID_LEN, dummy)],
-    % we don't concern the return nodes info.
-    lib:flush_receive().
+     || I <- lists:duplicate(?NODE_ID_LEN, dummy)].
 			
 %%
 %% gen_server callback
@@ -118,9 +116,9 @@ handle_call(_Msg, _From, State) ->
     {noreply, State}.
 
 handle_cast({stop, Reason}, State) ->
-	{stop, Reason, State};
+    {stop, Reason, State};
 handle_cast({update, Node}, State) ->
-	State2 = do_update(Node, State#state.buckets),
+    State2 = do_update(Node, State#state.buckets),
     {noreply, State2};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -179,24 +177,24 @@ do_closest1([H|T], Buckets, N, Acc, AccN) ->
 
 %% return all the nodes
 do_all_nodes(#state{buckets = Buckets, actives = Actives}) ->
-	lists:foldl(fun(Index, Acc) ->
-					Bucket = array:get(Index, Buckets),
-					lists:append([Acc, Bucket])
-					end,
-				[], Actives).
+    lists:foldl(fun(Index, Acc) ->
+			Bucket = array:get(Index, Buckets),
+			lists:append([Acc, Bucket])
+		end,
+		[], Actives).
 
 %% random get N nodes from the specify bucket
 do_random_from_bucket(N, Bucket) ->
-	do_random_from_bucket1(N, Bucket, []).
+    do_random_from_bucket1(N, Bucket, []).
 
 do_random_from_bucket1(0, _Bucket, Acc) ->
-	Acc;
+    Acc;
 do_random_from_bucket1(N, Bucket, Acc) ->
-	L = length(Bucket),
-	Index = random:unifrom(L - 1) + 1,
-	Node = lists:nth(Index, Bucket),
-	Bucket2 = lists:sublist(Bucket, Index - 1) ++ lists:sublist(Bucket, Index + 1, L - Index),
-	do_random_from_bucket1(N - 1, Bucket2, [Node | Acc]).
+    L = length(Bucket),
+    Index = random:unifrom(L - 1) + 1,
+    Node = lists:nth(Index, Bucket),
+    Bucket2 = lists:sublist(Bucket, Index - 1) ++ lists:sublist(Bucket, Index + 1, L - Index),
+    do_random_from_bucket1(N - 1, Bucket2, [Node | Acc]).
 	
 %% update the bucket
 update_bucket(Node = #kad_contact{id = Id}, Bucket) ->
@@ -234,10 +232,10 @@ get_lowest_level([Low|_]) ->
 
 %% start the refresh timer
 start_refresh_timer() ->
-	case timer:apply_interval(?BUCKET_REFRESH, ?MODULE, random_refresh_bucket, []) of
-		{ok, _TRef} ->
-			ok;
-		{error, Reason} ->
-			?LOG("start the timer:apply_interval error\n"),
-			exit(Reason)
-	end.
+    case timer:apply_interval(?BUCKET_REFRESH, ?MODULE, random_refresh_bucket, []) of
+	{ok, _TRef} ->
+	    ok;
+	{error, Reason} ->
+	    ?LOG("start the timer:apply_interval error\n"),
+	    exit(Reason)
+    end.

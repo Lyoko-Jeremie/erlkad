@@ -9,7 +9,7 @@
 -behaviour(gen_server).
 -export([start_link/0]).
 -export([msgid/0]).
--export([msgdata/1, msgdata/2]).
+-export([msgdata/1, msgdata/3]).
 -export([add/2, exist/1]).
 -export([dispatch/4]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -18,7 +18,8 @@
 -record(msgdata, {
 	  start_stamp, % msg kick off time
 	  pid,         % the msg send process pid
-	  sync = false % if it is sync
+	  sync = false, % if it is sync
+	  discard = false  % if discard the result
 	  }).
 	  
 
@@ -51,11 +52,11 @@ msgid() ->
 
 %% @spec msgdata(pid(), bool()) -> msgdata()
 %% @doc create msgdata 
-msgdata(Sender, Sync) ->
-    #msgdata{pid = Sender, sync = Sync, start_stamp = now()}.
+msgdata(Sender, Sync, Discard) ->
+    #msgdata{pid = Sender, sync = Sync, discard = Discard, start_stamp = now()}.
 
 msgdata(Sender) ->
-    msgdata(Sender, false).
+    msgdata(Sender, true, false).
 
 %% @spec add(identify(), msgdata()) -> Ret
 %% @doc add a msg invoke to rpc manager
@@ -102,8 +103,8 @@ handle_cast({add, MsgId, MsgData = #msgdata{}}, State) ->
     {noreply, State};
 handle_cast({dispatch, MsgId, _Src, Cmd, Msg}, State) ->
     case ets:lookup(?RPCTABLE, MsgId) of
-	[#item{data = #msgdata{pid = Pid, sync = Sync}}] ->
-	    do_notify_msg(Pid, Sync, Cmd, Msg);	
+	[#item{data = #msgdata{pid = Pid, sync = Sync, discard = Discard}}] ->
+	    do_notify_msg(Pid, Sync, Discard, Cmd, Msg);	
 	[] ->
 	    ?LOG("this msg:~p is not exist in rpc manager~n", [MsgId])	    
     end,
@@ -126,7 +127,10 @@ code_change(_Old, State, _Extra) ->
 %% internal API
 %%
 
-do_notify_msg(Pid, true, Cmd, Msg) when is_pid(Pid) ->
+do_notify_msg(_Pid, _Sync, true, _Cmd, _Msg) ->
+    ?LOG("discard the msg result\n"),
+    ok;
+do_notify_msg(Pid, true, false, Cmd, Msg) when is_pid(Pid) ->
     Pid ! {self(), Cmd, Msg},
     % wait for rsp
     receive
@@ -135,5 +139,5 @@ do_notify_msg(Pid, true, Cmd, Msg) when is_pid(Pid) ->
     after 10000 ->
 	    timeout
     end;
-do_notify_msg(Pid, false, Cmd, Msg) when is_pid(Pid) ->
+do_notify_msg(Pid, false, false, Cmd, Msg) when is_pid(Pid) ->
     Pid ! {self(), Cmd, Msg}.

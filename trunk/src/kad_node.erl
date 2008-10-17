@@ -7,16 +7,21 @@
 -include("kad.hrl").
 -behaviour(gen_server).
 
--export([start_link/2]).
+-export([start_link/3]).
 -export([id/0, contact/0, distance/1, distance/2]).
 -export([new_node/3]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
                             terminate/2, code_change/3]).
 
+-record(state, {
+	  node,
+	  virtual % virtual node id
+	 }).
+	  
 -define(SERVER, ?MODULE).
 
-start_link(Addr, Port) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, {Addr, Port}, []).
+start_link(Addr, Port, Virtual) ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, {Addr, Port, Virtual}, []).
 
 %% @spec id() -> identify()
 %% @doc the self node id
@@ -41,16 +46,17 @@ distance(X, Y) ->
 %% @spec new_node(identify(), ip_address(), integer()) -> kad_contact()
 %% @doc return new node
 new_node(Id, Addr, Port) ->
-	#kad_contact{id = Id, ip = Addr, port = Port}.
+    #kad_contact{id = Id, ip = Addr, port = Port}.
 
 %% gen_server callbacks
-init({Addr, Port}) ->
-    Id = gen_nodeid(Addr, Port),
-    State = #kad_contact{id = Id, ip = Addr, port = Port},	
-    {ok, State}.
+init({Addr, Port, Virtual}) ->
+    Id = gen_nodeid(Addr, Port, Virtual),
+    Node = #kad_contact{id = Id, ip = Addr, port = Port},	
+    {ok, #state{node = Node, virtual = Virtual}}.
 
 handle_call({get, id}, _From, State) ->
-    {reply, State#kad_contact.id, State};
+    Node = State#state.node,
+    {reply, Node#kad_contact.id, State};
 handle_call({get, contact}, _From, State) ->
     {reply, State, State};
 handle_call(_Msg, _From, State) ->
@@ -73,6 +79,6 @@ code_change(_Old, State, _Extra) ->
 %% internal API
 %%
 
-gen_nodeid({D1, D2, D3, D4}, Port) ->
-    {A, B, C} = now(),
-    kad_util:id(<<D1, D2, D3, D4, Port:16, A:32, B:32, C:32>>).
+gen_nodeid({D1, D2, D3, D4}, Port, Virtual) ->
+    %{A, B, C} = now(),
+    kad_util:id(<<D1, D2, D3, D4, Port:16, Virtual>>).
