@@ -10,7 +10,7 @@
 -export([start_link/0, stop/1]).
 -export([size/0, global_size/0]).
 -export([update/1, closest/2, all_nodes/0]).
--export([random_nodes/1]).
+-export([random_nodes/2]).
 -export([random_refresh_bucket/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
                             terminate/2, code_change/3]).
@@ -31,7 +31,7 @@ start_link() ->
 
 %% @doc stop the kad_routing
 stop(Reason) ->
-	gen_server:cast(?SERVER, {stop, Reason}).
+    gen_server:cast(?SERVER, {stop, Reason}).
 
 %% @spec size() -> integer()
 %% @doc return the contacts in buckets
@@ -51,39 +51,41 @@ update(Node) ->
 %% @spec closest(indentify(), integer()) -> list()
 %% @doc return the N closest nodes to Node
 closest(Node, N) ->
-	gen_server:call(?SERVER, {closest, Node, N}).
+    gen_server:call(?SERVER, {closest, Node, N}).
 
 all_nodes() ->
-	gen_server:call(?SERVER, all_nodes).
+    gen_server:call(?SERVER, all_nodes).
 
 %% @spec random_nodes(integer(), integer()) -> [kad_contact()]
 %% @doc random select N nodes from the I bucket
 random_nodes(I, N) ->
-	gen_server:call(?SERVER, {random, I, N}).
+    gen_server:call(?SERVER, {random, I, N}).
 
 %% @spec refresh_bucket()
 %% @doc random select REFRESH_NODE_COUNT nodes in bucket to refresh
 random_refresh_bucket() ->
-	[
-	case catch random_nodes(I, ?REFRESH_NODE_COUNT) of
-		{'EXIT', {noproc, _}} ->
-			% the kad_routing gen_server has stop
-			exit(stop);
-		[] -> % don't has nodes in this bucket
-			ok;
-		[Node|_] -> % do find for this node
-			kad_api:find_node(Node, false)
-	end
-	|| I <- lists:duplicate(?NODE_ID_LEN, dummy)].
+    [
+     case catch random_nodes(I, ?REFRESH_NODE_COUNT) of
+	 {'EXIT', {noproc, _}} ->
+	     % the kad_routing gen_server has stop
+	     exit(stop);
+	 [] -> % don't has nodes in this bucket
+	     ok;
+	 [Node|_] -> % do find for this node
+	     kad_api:find_node(Node, false)
+     end
+     || I <- lists:duplicate(?NODE_ID_LEN, dummy)],
+    % we don't concern the return nodes info.
+    lib:flush_receive().
 			
 %%
 %% gen_server callback
 %% 
 init(_Args) ->
-	start_refresh_timer(),
-	Buckets = array:new([{size, ?NODE_ID_LEN}, {fixed, true}, {default, []}]),
-	State = #state{buckets = Buckets, refresh_timer = TRef},
-	{ok, State}.	
+    start_refresh_timer(),
+    Buckets = array:new([{size, ?NODE_ID_LEN}, {fixed, true}, {default, []}]),
+    State = #state{buckets = Buckets},
+    {ok, State}.	
 
 handle_call(size, _From, State) ->
     {reply, State#state.size, State};
@@ -93,26 +95,25 @@ handle_call(global_size, _From, State) ->
     Count = 2 bsl (?NODE_ID_LEN - Low) * State#state.size,
     {reply, Count, State};
 handle_call({closest, Node, N}, _From, State) ->
-	Closest = do_closest(Node, N, State),
-	{reply, Closest, State};
+    Closest = do_closest(Node, N, State),
+    {reply, Closest, State};
 handle_call(all_nodes, _From, State) ->
-	Reply = do_all_nodes(State),
-	{reply, Reply, State}
-handle_call({random, I, N}, _From, State#state{buckets = Buckets, actives = Actives}) ->
-	Reply = 
+    Reply = do_all_nodes(State),
+    {reply, Reply, State};
+handle_call({random, I, N}, _From, State = #state{buckets = Buckets, actives = Actives}) ->
+    Reply = 
 	case lists:member(I, Actives) of
-		false -> % this bucket is empty
-			[];
-		true ->
-			Bucket = array:get(I, Buckets),
-			if length(Bucket) =< N ->
-				Bucket;
-			   true ->
-				do_random_from_bucket(N, Bucket)
-			end
+	    false -> % this bucket is empty
+		[];
+	    true ->
+		Bucket = array:get(I, Buckets),
+		if length(Bucket) =< N ->
+			Bucket;
+		   true ->
+			do_random_from_bucket(N, Bucket)
 		end
 	end,
-	{reply, Reply, State};
+    {reply, Reply, State};
 handle_call(_Msg, _From, State) ->
     {noreply, State}.
 
@@ -151,7 +152,7 @@ get_bucket(Key, Buckets) ->
     {Index, array:get(Index, Buckets)}.
 	
 %% get the closest nodes
-do_closest(Node, N, State#state{buckets = Buckets, actives = Actives}) ->
+do_closest(Node, N, #state{buckets = Buckets, actives = Actives}) ->
     {Index, Bucket} = get_bucket(Node, Buckets),
     Acc1 = lists:sublist(Bucket, N),
     AccN1 = length(Acc1),
@@ -177,7 +178,7 @@ do_closest1([H|T], Buckets, N, Acc, AccN) ->
     end.
 
 %% return all the nodes
-do_all_nodes(State#state{buckets = Buckets, actives = Actives}) ->
+do_all_nodes(#state{buckets = Buckets, actives = Actives}) ->
 	lists:foldl(fun(Index, Acc) ->
 					Bucket = array:get(Index, Buckets),
 					lists:append([Acc, Bucket])
@@ -188,7 +189,7 @@ do_all_nodes(State#state{buckets = Buckets, actives = Actives}) ->
 do_random_from_bucket(N, Bucket) ->
 	do_random_from_bucket1(N, Bucket, []).
 
-do_random_from_bucket1(0, Bucket, Acc) ->
+do_random_from_bucket1(0, _Bucket, Acc) ->
 	Acc;
 do_random_from_bucket1(N, Bucket, Acc) ->
 	L = length(Bucket),
