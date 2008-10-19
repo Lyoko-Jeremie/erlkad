@@ -32,36 +32,41 @@ parse(_) ->
 %% @doc gen the rsp msg
 gen_msg(Cmd, D, Id, Args) ->
     Header = <<Cmd, D/binary, (kad_node:id())/binary, Id/binary>>,
-    gen_cmd(Cmd, Header, Args).
+    gen_msg(Cmd, Header, Args).
 
-%% @spec gen_cmd(cmd(), identify(), list()) -> binary()
+%% @spec gen_msg(cmd(), identify(), list()) -> binary()
 %% @doc gen the msg
-gen_cmd(?PING, Hd, _Dummy) ->
+gen_msg(?PING, Hd, _Dummy) ->
     <<?PING, Hd/binary, 0:16>>;
-gen_cmd(?STORE, Hd, {Key, Data}) ->
+gen_msg(?PING_FIRST, Hd, _Dummy) ->
+    <<?PING_FIRST, Hd/binary, 0:16>>;
+gen_msg(?STORE, Hd, {Key, Data}) ->
     Len = byte_size(Data) + ?NODE_ID_BYTES,
     <<Hd/binary, Len:16, Key/binary, Data/binary>>;
-gen_cmd(?FIND_NODE, Hd, Node) ->
+gen_msg(?FIND_NODE, Hd, Node) ->
     <<Hd/binary, ?NODE_ID_BYTES:16, Node/binary>>;
-gen_cmd(?FIND_VALUE, Hd, Key) ->
+gen_msg(?FIND_VALUE, Hd, Key) ->
     <<?FIND_VALUE, Hd/binary, ?NODE_ID_BYTES:16, Key/binary>>;
-gen_cmd(?DELETE, Hd, Key) ->
+gen_msg(?DELETE, Hd, Key) ->
     <<Hd/binary, ?NODE_ID_BYTES:16, Key/binary>>;
 
-gen_cmd(?PING_RSP, Hd, Self) ->
-    <<Hd/binary, ?NODE_ID_BYTES:16, Self/binary>>;
-gen_cmd(?PING_RSP, Hd, <<>>) ->
+
+gen_msg(?PING_RSP, Hd, _Dummy) ->
     <<Hd/binary, 0:16>>;
-gen_cmd(?STORE_RSP, Hd, Value) ->
+gen_msg(?PING_FIRST_RSP, Hd, Self) ->
+    <<Hd/binary, ?NODE_ID_BYTES:16, Self/binary>>;
+gen_msg(?PING_FIRST_ACK, Hd, _Dummy) ->
+    <<Hd/binary, 0:16>>;
+gen_msg(?STORE_RSP, Hd, Value) ->
     <<?STORE_RSP, Hd/binary, Value>>;
-gen_cmd(?FIND_NODE_RSP, Hd, Nodes) when is_list(Nodes) ->
+gen_msg(?FIND_NODE_RSP, Hd, Nodes) when is_list(Nodes) ->
     Data = gen_nodes(Nodes),
     Len = byte_size(Data),
     <<Hd/binary, Len:16, Data/binary>>;
-gen_cmd(?FIND_VALUE_RSP, Hd, Data) ->
+gen_msg(?FIND_VALUE_RSP, Hd, Data) ->
     Len = byte_size(Data),
     <<Hd/binary, Len:16, Data/binary>>;
-gen_cmd(?DELETE_RSP, Hd, _Dummy) ->
+gen_msg(?DELETE_RSP, Hd, _Dummy) ->
     <<Hd/binary, 0:16>>.
 
 
