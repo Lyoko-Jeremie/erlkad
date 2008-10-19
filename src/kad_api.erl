@@ -30,7 +30,7 @@ bootstrap({Addr, Port} = G) ->
 bootstrap([_|_] = _G) ->
     ?NOT_IMPL.
 
-%% @spec ping_first(ip_address(), integer(), bool()) -> {ok, Id} | {error, Reason} | {ok, KRef}
+%% @spec ping_first(ip_address(), integer(), bool()) -> {value, Id} | {error, Reason} | {ok, KRef}
 %% @doc first time ping the node, now we don't know the node's id
 %%      the receipt return the self id. if the Sync is false, the {ok, KRef} will return,
 %%      the send process will receive the msg {KRef, Cmd, Msg}
@@ -45,61 +45,89 @@ ping_first(Addr, Port, Sync, Timeout) ->
 	true ->
 	    Id = kad_node:id(),
 	    if Sync ->
-		    {ok, Id};
+		    {value, Id};
 	       true ->
 		    self() ! {KRef, ?PING_FIRST_RSP, Id},
 		    {ok, KRef}
 	    end; 
 	false  ->
-	    Msg = kad_protocol:gen_cmd(?PING_FIRST, <<>>, []),
-	    case send_msg(Addr, Port, KRef, Msg) of
+	    MsgId = kad_rpc_mgr:msgid(),
+	    Msg = kad_protocol:gen_msg(?PING_FIRST, dummy, MsgId, dummy),
+	    case send_msg(Addr, Port, MsgId, Msg, false) of
 		ok ->
 		    if Sync ->
-			    wait_rsp(?PING_FIRST_RSP, Timeout);			    
+			    case wait_rsp(?PING_FIRST_RSP, KRef, Timeout) of
+				{error, Reason} ->
+				    {error, Reason};
+				Rsp ->
+				    {value, Rsp}
+			    end;
 		       true  ->
 			    {ok, KRef}
 		    end;
-		{error, Reason} ->
-		    {error, {ping_error, Reason}}
+		Other ->
+		    Other	       
 	    end
     end.
 
-%% @spec ping(identify()) -> ok | {error, Reason}
+%% @spec ping(identify(), ip_address(), integer(), bool()) -> {value, Rsp} | {error, Reason} | {ok, KRef}
 %% @doc ping the Node, check if it's online
-ping(Node, Addr, Port, Sync) when is_binary(Node)  ->
+ping(Node, Addr, Port, Sync) ->
+    ping(Node, Addr, Port, Sync, infinity).
+ping(Node, Addr, Port, Sync, Timeout) when is_binary(Node)  ->
     ?LOG("ping the node:~p ~p:~p~n", [Node, Addr, Port]),
     IsSelf = is_self(Node),
+    KRef = make_ref(),
     case IsSelf of
 	true ->
-	    ok;
+	    Id = kad_node:id(),
+	    if Sync ->
+		    {value, Id};
+	       true ->
+		    self() ! {KRef, ?PING_RSP, Id},
+		    {ok, KRef}
+	    end;
 	false -> 
-	    % generate the msg
-	    Msg = kad_protocol:gen_cmd(?PING, Node, []),
-	    case kad_net:send(Addr, Port, Msg) of
+	    MsgId = kad_rpc_mgr:msgid(),
+	    Msg = kad_protocol:gen_msg(?PING, Node, MsgId, dummy),
+	    case send_msg(Addr, Port, MsgId, Msg, false) of
 		ok ->
 		    if Sync -> % sync wait the response
-			    wait_rsp(?PING_RSP);
+			    case wait_rsp(?PING_RSP, KRef, Timeout) of
+				{error, Reason} ->
+				    {error, Reason};
+				Rsp ->
+				    {value, Rsp}
+			    end;
 		       true ->
-			    ok
+			    {ok, KRef}
 		    end;
-		{error, Reason} ->
-		    {error, {ping_error, Reason}}
+		Other ->
+		    Other
 	    end
     end.
 
-find_node(Node, Sync, Discard) when is_binary(Node) ->
-    ?LOG("find_node start:~p~n", [Node]),
-    %get a closest nodes
-    {N, Closest} = kad_routing:closest(Node, ?A),
+
+%% find the closest nodes to the Id
+find_node(Id, Sync, Discard, Timeout) when is_binary(Id) ->
+    ?LOG("find_node start:~p~n", [Id]),
+    %get alpha closest nodes
+    {N, Closest} = kad_routing:closest(Id, ?A),
     ?LOG("get ~p Closest Node~n", [N]),
-    {Success, Failed} = send_find_to_nodes(Closest, ?FIND_NODE, Node),
+    {Success, Failed} = send_find_to_nodes(?FIND_NODE, Id, Closest, Discard),
     % process the contacts which send request error
     process_req_error(Failed),
-    if Sync ->
-	    % wait the response
-	    wait_rsp_iter(Node, kad_searchlist:new(Node));
-       true ->
-	    ok
+    KRef = make_ref(),
+    case Sync of
+	true -> % wait the response
+	    case wait_rsp_iter(KRef, Timeout, Node, kad_searchlist:new(Id)) of
+		{error, Reason} ->
+		    {error, Reason};
+		Rsp ->
+		    {value, Rsp}
+	    end;
+	false ->
+	    {ok, KRef}
     end.
 
 %% @spec find_value(key(), integer()) -> {ok, Value} | {error, Reason}
@@ -150,28 +178,33 @@ is_self({_Ip, _Port} = Addr) ->
 
 
 %% send cmd  to nodes
-send_find_to_nodes(Nodes, Cmd, Key) ->
+send_find_to_nodes(Cmd, Node, Nodes, Discard) ->
     % send reqeust
     Ret = 
-    lists:map(fun(#kad_contact{id = Id, ip = Addr, port = Port}) -> 
+    lists:map(fun(#kad_contact{id = Dest, ip = Addr, port = Port}) -> 
 		         % gen the msg
-			 Msg = kad_protocol:gen_cmd(Cmd, Id, Key),
-			 kad_net:send(Addr, Port, Msg)
-		 end, 
-		  Nodes),
-	FSuccess = fun(ok) -> true;
-				  ({error, _}) -> false
-				  end,				
-	lists:partition(FSuccess, Ret).
+		         MsgId = kad_rpc_mgr:msgid(),
+			 Msg = kad_protocol:gen_msg(Cmd, Dest, Msgid, Node),
+		         send_msg(Addr, Port, MsgId, Msg, Discard)
+	      end, 
+	      Nodes),
+    FSuccess = fun(ok) -> true;
+		  ({error, _}) -> false
+	       end,				
+    lists:partition(FSuccess, Ret).
 
 %% process the contacts which send request error
 process_req_error(_Ret) ->
     ok.
 
 %% wait the rsp
-wait_rsp(?PING_FIRST_RSP) ->
+wait_rsp(?PING_FIRST_RSP = Cmd, KRef, Timeout) ->
     receive 
-	{KRef, 
+	{KRef, Cmd, Msg} ->
+	    Msg
+    after Timeout ->
+	    {error, timeout}
+    end;
 wait_rsp(?PING_RSP) ->
     receive
 	{_Parent, ?PING_RSP, Msg} ->
@@ -254,10 +287,10 @@ FAdd = fun(#kad_contact{} = Node, List) ->
 
 
 %% send msg
-send_msg(Addr, Port, KRef, Msg) ->
+send_msg(Addr, Port, MsgId, Msg, Discard) ->
     case kad_net:send(Addr, Port, Msg) of
 	ok -> % add the msg to the rpc manager
-	    kad_rpc_mgr(
+	    kad_rpc_mgr:add(MsgId, kad_rpc:mgr:msgdata(self(), Discard)),
 	    ok;
 	Error ->
 	    Error
