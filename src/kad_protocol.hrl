@@ -18,17 +18,20 @@
 
 %% Cmd
 -define(PING, 1).
--define(STORE, 2).
--define(FIND_NODE, 3).
--define(FIND_VALUE, 4).
--define(DELETE, 5).
+-define(PING_FIRST, 2).
+-define(STORE, 3).
+-define(FIND_NODE, 4).
+-define(FIND_VALUE, 5).
+-define(DELETE, 6).
 
 -define(PING_RSP, 101).
--define(STORE_RSP, 102).
--define(FIND_NODE_RSP, 103).
--define(FIND_VALUE_RSP, 104).
--define(DELETE_RSP, 105).
--define(PING_PIGGY_RSP, 106).
+-define(PING_FIRST_RSP, 102).
+-define(STORE_RSP, 103).
+-define(FIND_NODE_RSP, 104).
+-define(FIND_VALUE_RSP, 105).
+-define(DELETE_RSP, 106).
+-define(PING_PIGGY_RSP, 107).
+-define(PING_FIRST_ACK, 108).
 
 
 %% Cmd op type
