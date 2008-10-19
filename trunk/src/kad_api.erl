@@ -8,7 +8,11 @@
 -include("kad_protocol.hrl").
 
 -export([bootstrap/1]).
--export([ping/3, ping/4, find_node/3, find_value/3, store/5, delete/2]).
+-export([ping_first/3, ping_first/4]).
+-export([ping/4, ping/5]).
+-export([find_node/3, find_node/4]).
+-export([find_value/3, find_value/4]).
+-export([store/5, delete/2]).
 -export([wait_rsp/1, wait_rsp_iter/2]).
 
 %% @doc bootstrap the kad
@@ -26,21 +30,32 @@ bootstrap({Addr, Port} = G) ->
 bootstrap([_|_] = _G) ->
     ?NOT_IMPL.
 
-%% @spec ping(ip_address(), integer(), bool()) -> ok | {error, Reason}
+%% @spec ping_first(ip_address(), integer(), bool()) -> {ok, Id} | {error, Reason} | {ok, KRef}
 %% @doc first time ping the node, now we don't know the node's id
-%%      the receipt return the self id
-ping(Addr, Port, Sync) ->
+%%      the receipt return the self id. if the Sync is false, the {ok, KRef} will return,
+%%      the send process will receive the msg {KRef, Cmd, Msg}
+ping_first(Addr, Port, Sync) ->
+    ping_first(Addr, Port, Sync, infinity).
+
+ping_first(Addr, Port, Sync, Timeout) ->
     ?LOG("first ping the node:~p:~p\n", [Addr, Port]),
     IsSelf = is_self({Addr, Port}),
     case IsSelf of
 	true ->
-	    ok;
+	    Id = kad_node:id(),
+	    if Sync ->
+		    {ok, Id};
+	       true ->
+		    KRef = make_ref(),
+		    self() ! {KRef, ?PING_RSP, Id},
+		    {ok, KRef}
+	    end; 
 	false  ->
-	    Msg = kad_protocol:gen_cmd(?PING, <<>>, []),
+	    Msg = kad_protocol:gen_cmd(?PING_FIRST, <<>>, []),
 	    case kad_net:send(Addr, Port, Msg) of
 		ok ->
 		    if Sync ->
-			    wait_rsp(?PING_RSP);
+			    wait_rsp(?PING_FIRST_RSP, Timeout);			    
 		       true  ->
 			    ok
 		    end;
@@ -81,7 +96,7 @@ find_node(Node, Sync, Discard) when is_binary(Node) ->
     % process the contacts which send request error
     process_req_error(Failed),
     if Sync ->
-	% wait the response
+	    % wait the response
 	    wait_rsp_iter(Node, kad_searchlist:new(Node));
        true ->
 	    ok
@@ -137,7 +152,7 @@ is_self({_Ip, _Port} = Addr) ->
 %% send cmd  to nodes
 send_find_to_nodes(Nodes, Cmd, Key) ->
     % send reqeust
-	Ret = 
+    Ret = 
     lists:map(fun(#kad_contact{id = Id, ip = Addr, port = Port}) -> 
 		         % gen the msg
 			 Msg = kad_protocol:gen_cmd(Cmd, Id, Key),
