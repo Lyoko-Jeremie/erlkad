@@ -8,7 +8,7 @@
 -include("kad_protocol.hrl").
 
 -export([parse/1]).
--export([gen_req/3, gen_rsp/4]).
+-export([gen_msg/4]).
 -export([optype/1]).
 
 %% @type cmd() = integer()
@@ -28,15 +28,9 @@ parse(_) ->
     ?LOG("invalid msg~n"),
     ignore.
 
-%% @spec gen_req(cmd(), identify(), term()) -> binary()
-%% @doc gen the req msg
-gen_req(Cmd, D, Args) ->
-    Header = <<Cmd, D/binary, (kad_node:id())/binary, (kad_rpc_mrg:msgid())/binary>>,
-    gen_cmd(Cmd, Header, Args).
-
-%% @spec gen_rsp(cmd(), identfiy(), identify(), term()) -> binary()
+%% @spec gen_msg(cmd(), identfiy(), identify(), term()) -> binary()
 %% @doc gen the rsp msg
-gen_rsp(Cmd, D, Id, Args) ->
+gen_msg(Cmd, D, Id, Args) ->
     Header = <<Cmd, D/binary, (kad_node:id())/binary, Id/binary>>,
     gen_cmd(Cmd, Header, Args).
 

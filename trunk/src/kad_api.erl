@@ -40,24 +40,24 @@ ping_first(Addr, Port, Sync) ->
 ping_first(Addr, Port, Sync, Timeout) ->
     ?LOG("first ping the node:~p:~p\n", [Addr, Port]),
     IsSelf = is_self({Addr, Port}),
+    KRef = make_ref(),
     case IsSelf of
 	true ->
 	    Id = kad_node:id(),
 	    if Sync ->
 		    {ok, Id};
 	       true ->
-		    KRef = make_ref(),
-		    self() ! {KRef, ?PING_RSP, Id},
+		    self() ! {KRef, ?PING_FIRST_RSP, Id},
 		    {ok, KRef}
 	    end; 
 	false  ->
 	    Msg = kad_protocol:gen_cmd(?PING_FIRST, <<>>, []),
-	    case kad_net:send(Addr, Port, Msg) of
+	    case send_msg(Addr, Port, KRef, Msg) of
 		ok ->
 		    if Sync ->
 			    wait_rsp(?PING_FIRST_RSP, Timeout);			    
 		       true  ->
-			    ok
+			    {ok, KRef}
 		    end;
 		{error, Reason} ->
 		    {error, {ping_error, Reason}}
@@ -169,6 +169,9 @@ process_req_error(_Ret) ->
     ok.
 
 %% wait the rsp
+wait_rsp(?PING_FIRST_RSP) ->
+    receive 
+	{KRef, 
 wait_rsp(?PING_RSP) ->
     receive
 	{_Parent, ?PING_RSP, Msg} ->
@@ -248,3 +251,14 @@ FAdd = fun(#kad_contact{} = Node, List) ->
 	       kad_searchlist:add(Node, List)
        end,
     lists:foldl(FAdd, Search, Nodes).
+
+
+%% send msg
+send_msg(Addr, Port, KRef, Msg) ->
+    case kad_net:send(Addr, Port, Msg) of
+	ok -> % add the msg to the rpc manager
+	    kad_rpc_mgr(
+	    ok;
+	Error ->
+	    Error
+    end.
