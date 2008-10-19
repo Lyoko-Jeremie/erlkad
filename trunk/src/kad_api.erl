@@ -8,7 +8,7 @@
 -include("kad_protocol.hrl").
 
 -export([bootstrap/1]).
--export([ping/4, find_node/2, find_value/3, store/5, delete/2]).
+-export([ping/3, ping/4, find_node/3, find_value/3, store/5, delete/2]).
 -export([wait_rsp/1, wait_rsp_iter/2]).
 
 %% @doc bootstrap the kad
@@ -26,6 +26,28 @@ bootstrap({Addr, Port} = G) ->
 bootstrap([_|_] = _G) ->
     ?NOT_IMPL.
 
+%% @spec ping(ip_address(), integer(), bool()) -> ok | {error, Reason}
+%% @doc first time ping the node, now we don't know the node's id
+%%      the receipt return the self id
+ping(Addr, Port, Sync) ->
+    ?LOG("first ping the node:~p:~p\n", [Addr, Port]),
+    IsSelf = is_self({Addr, Port}),
+    case IsSelf of
+	true ->
+	    ok;
+	false  ->
+	    Msg = kad_protocol:gen_cmd(?PING, <<>>, []),
+	    case kad_net:send(Addr, Port, Msg) of
+		ok ->
+		    if Sync ->
+			    wait_rsp(?PING_RSP);
+		       true  ->
+			    ok
+		    end;
+		{error, Reason} ->
+		    {error, {ping_error, Reason}}
+	    end
+    end.
 
 %% @spec ping(identify()) -> ok | {error, Reason}
 %% @doc ping the Node, check if it's online
@@ -40,17 +62,17 @@ ping(Node, Addr, Port, Sync) when is_binary(Node)  ->
 	    Msg = kad_protocol:gen_cmd(?PING, Node, []),
 	    case kad_net:send(Addr, Port, Msg) of
 		ok ->
-			if Sync -> % sync wait the response
-					wait_rsp(?PING_RSP);
-				true ->
-					ok
-			end;
+		    if Sync -> % sync wait the response
+			    wait_rsp(?PING_RSP);
+		       true ->
+			    ok
+		    end;
 		{error, Reason} ->
 		    {error, {ping_error, Reason}}
 	    end
     end.
 
-find_node(Node, Sync) when is_binary(Node) ->
+find_node(Node, Sync, Discard) when is_binary(Node) ->
     ?LOG("find_node start:~p~n", [Node]),
     %get a closest nodes
     {N, Closest} = kad_routing:closest(Node, ?A),
@@ -58,12 +80,12 @@ find_node(Node, Sync) when is_binary(Node) ->
     {Success, Failed} = send_find_to_nodes(Closest, ?FIND_NODE, Node),
     % process the contacts which send request error
     process_req_error(Failed),
-	if Sync ->
-	    % wait the response
-		wait_rsp_iter(Node, kad_searchlist:new(Node));
-	   true ->
-		ok
-	end.
+    if Sync ->
+	% wait the response
+	    wait_rsp_iter(Node, kad_searchlist:new(Node));
+       true ->
+	    ok
+    end.
 
 %% @spec find_value(key(), integer()) -> {ok, Value} | {error, Reason}
 %% @doc find the value corresponding the key
@@ -107,7 +129,9 @@ delete(_Key, _Sync) ->
 
 %% if the Node is ourself
 is_self(Node) ->
-    Node =:= kad_node:id().
+    Node =:= kad_node:id();
+is_self({_Ip, _Port} = Addr) ->
+    Addr =:= kad_node:address().
 
 
 %% send cmd  to nodes

@@ -8,7 +8,8 @@
 -behaviour(gen_server).
 
 -export([start_link/3]).
--export([id/0, contact/0, distance/1, distance/2]).
+-export([id/0, address/0, contact/0, virtual/0]).
+-export([distance/1, distance/2]).
 -export([new_node/3]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
                             terminate/2, code_change/3]).
@@ -28,10 +29,21 @@ start_link(Addr, Port, Virtual) ->
 id() ->
     gen_server:call(?SERVER, {get, id}).
 
+
+%% @spec address() -> {ip_address(), integer()}
+%% @doc return the ip and port tuple
+address() ->
+    gen_server:call(?SERVER, {get, address}).
+
 %% @spec contact() -> identify()
 %% @doc the self node contact info
 contact() ->
     gen_server:call(?SERVER, {get, contact}).
+
+%% @spec virtual() -> integer()
+%% @doc return the self virtual id
+virtual() ->
+    gen_server:call(?SERVER, {get, virtual}).
 
 %% @spec distance(identify()) -> identify()
 %% @doc return the distance between X and self( based XOR)
@@ -57,6 +69,11 @@ init({Addr, Port, Virtual}) ->
 handle_call({get, id}, _From, State) ->
     Node = State#state.node,
     {reply, Node#kad_contact.id, State};
+handle_call({get, address}, _From, State) ->
+    #kad_contact{ip = Ip, port = Port} = State#state.node,
+    {reply, {Ip, Port}, State};    
+handle_call({get, virtual}, _From, State) ->
+    {reply, State#state.virtual, State};
 handle_call({get, contact}, _From, State) ->
     {reply, State, State};
 handle_call(_Msg, _From, State) ->
