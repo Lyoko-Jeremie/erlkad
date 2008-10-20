@@ -10,10 +10,10 @@
 -export([bootstrap/1]).
 -export([ping_first/3, ping_first/4]).
 -export([ping/4, ping/5]).
--export([find_node/3, find_node/4]).
+-export([find_node/4, find_node/4]).
 -export([find_value/3, find_value/4]).
 -export([store/5, delete/2]).
--export([wait_rsp/3, wait_rsp_iter/4]).
+-export([wait_rsp/3, wait_rsp_iter/5]).
 
 %% @doc bootstrap the kad
 bootstrap({Addr, Port} = G) ->
@@ -109,6 +109,8 @@ ping(Node, Addr, Port, Sync, Timeout) when is_binary(Node)  ->
 
 
 %% find the closest nodes to the Id
+find_node(Id, Sync, Discard) ->
+    find_node(Id, Sync, Discard, infinity).
 find_node(Id, Sync, Discard, Timeout) when is_binary(Id) ->
     ?LOG("find_node start:~p~n", [Id]),
     %get alpha closest nodes
@@ -120,7 +122,7 @@ find_node(Id, Sync, Discard, Timeout) when is_binary(Id) ->
     process_req_error(Failed),
     case Sync of
 	true -> % wait the response
-	    case wait_rsp_iter(KRef, Node, kad_searchlist:new(Id), Discard, Timeout) of
+	    case wait_rsp_iter(KRef, Id, kad_searchlist:new(Id), Discard, Timeout) of
 		{error, Reason} ->
 		    {error, Reason};
 		Rsp ->
@@ -130,9 +132,10 @@ find_node(Id, Sync, Discard, Timeout) when is_binary(Id) ->
 	    {ok, KRef}
     end.
 
-%% @spec find_value(key(), integer()) -> {ok, Value} | {error, Reason}
-%% @doc find the value corresponding the key
-find_value(Key, 1, Sync) when is_binary(Key) ->
+%% find the value corresponding the key
+find_value(Key, 1, Sync) ->
+    find_value(Key, 1, Sync, infinity).
+find_value(Key, 1, Sync, Timeout) when is_binary(Key) ->
     ?LOG("find value start:~p\n", [Key]),
     case kad_store:lookup(Key) of
 	{value, Value} -> % is store in lcoal, just return the value
@@ -140,7 +143,9 @@ find_value(Key, 1, Sync) when is_binary(Key) ->
 	    {ok, Value};
 	none -> % is not in local
 	    % send request
-	    Ret = send_to_closest_nodes(Key, ?FIND_VALUE),
+	    {N, Closest} = kad_routing:closest(Key, ?A),
+	    KRef = make_ref(),
+	    Ret = send_find_to_nodes(?FIND_VALUE, KRef, Key, Closest, false),
 	    Ret,
 	    % wait the response
 	    wait_rsp(?FIND_VALUE_RSP)
@@ -180,7 +185,7 @@ is_self({_Ip, _Port} = Addr) ->
 send_msg(Addr, Port, KRef, MsgId, Msg, Discard) ->
     case kad_net:send(Addr, Port, Msg) of
 	ok -> % add the msg to the rpc manager
-	    kad_rpc_mgr:add(KRef, MsgId, kad_rpc:mgr:msgdata(self(), Discard)),
+	    kad_rpc_mgr:add(KRef, MsgId, kad_rpc_mgr:msgdata(self(), Discard)),
 	    ok;
 	Error ->
 	    Error
@@ -215,7 +220,6 @@ wait_rsp(Cmd, KRef, Timeout) ->
 	    {error, timeout}
     end.
 
-
 %% wait the find_node response 
 wait_rsp_iter(KRef, Target, SearchList, Discard, Timeout) ->
     wait_rsp_iter1(Kref, Target, SearchList, Discard, Timeout, now()).
@@ -223,7 +227,7 @@ wait_rsp_iter(KRef, Target, SearchList, Discard, Timeout) ->
 wait_rsp_iter1(_KRef, _Target, _SearchList, _Discard, 0, _Start) ->
     {error, timeout};
 wait_rsp_iter1(KRef, Target, SearchList, Discard, Timeout, Start)
-                                    when (is_integer(Timeout), Timeout >= 0)
+                                    when (is_integer(Timeout) andalso Timeout >= 0)
                                          orelse (Timeout =:= infinity) ->
     receive 
 	{KRef, ?FIND_NODE_RSP, Msg} ->
@@ -239,8 +243,8 @@ wait_rsp_iter1(KRef, Target, SearchList, Discard, Timeout, Start)
 		    ANodes = kad_searchlist:closest(?A, true, SL2),
 		    send_find_to_nodes(?FIND_NODE, KRef, Target, ANodes, Discard),		    
 		    wait_rsp_iter(KRef, Target, SL2, Discard, Timeout)
-	    end;
-	afetr Timeout ->
+	    end
+    after Timeout ->
 	    {error, timeout}
     end.
 
@@ -263,7 +267,7 @@ wait_k_rsp(Cmd, N, Acc) ->
 	    wait_k_rsp(Cmd, N - 1, [Data | Acc])
     after 100000 ->
 	    {error, timeout}
-    end;
+    end.
 
 %% add the nodes to search list
 add_searchlist(Nodes, Search) ->
