@@ -8,6 +8,7 @@
 
 -export([randid/0, id/1, idinc/1]).
 -export([log2/1]).
+-export([now_ms/0]).
 -export([id_to_integer/1, integer_to_id/2, distance/2]).
 -export([takewhile/3]).
 
@@ -40,6 +41,11 @@ log2(0, Acc) -> Acc;
 log2(X, Acc) ->
     log2(X bsr 2, Acc + 1).
 
+
+%% @doc return the now in ms unit
+now_ms() ->
+    {A, B, C} = now(),
+    (A * 1000000 + B + C / 1000000) * 1000.
 
 %% @spec id_to_integer(identify()) -> integer()
 %% @doc convert id to integer, the first byte in binary is the low endian

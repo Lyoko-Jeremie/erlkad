@@ -115,12 +115,12 @@ find_node(Id, Sync, Discard, Timeout) when is_binary(Id) ->
     {N, Closest} = kad_routing:closest(Id, ?A),
     ?LOG("get ~p Closest Node~n", [N]),
     KRef = make_ref(),
-    {Success, Failed} = send_find_to_nodes(?FIND_NODE, Id, KRef, Closest, Discard),
+    {Success, Failed} = send_find_to_nodes(?FIND_NODE, KRef, Id, Closest, Discard),
     % process the contacts which send request error
     process_req_error(Failed),
     case Sync of
 	true -> % wait the response
-	    case wait_rsp_iter(KRef, Node, kad_searchlist:new(Id), Timeout) of
+	    case wait_rsp_iter(KRef, Node, kad_searchlist:new(Id), Discard, Timeout) of
 		{error, Reason} ->
 		    {error, Reason};
 		Rsp ->
@@ -187,7 +187,7 @@ send_msg(Addr, Port, KRef, MsgId, Msg, Discard) ->
     end.
 
 %% send cmd to nodes
-send_find_to_nodes(Cmd, Node, KRef, Nodes, Discard) ->
+send_find_to_nodes(Cmd, KRef, Node, Nodes, Discard) ->
     % send reqeust
     Ret = 
     lists:map(fun(#kad_contact{id = Dest, ip = Addr, port = Port}) -> 
@@ -207,58 +207,41 @@ process_req_error(_Ret) ->
     ok.
 
 %% wait the rsp
-wait_rsp(?PING_FIRST_RSP = Cmd, KRef, Timeout) ->
+wait_rsp(Cmd, KRef, Timeout) ->
     receive 
 	{KRef, Cmd, Msg} ->
 	    Msg
     after Timeout ->
 	    {error, timeout}
-    end;
-wait_rsp(?PING_RSP = Cmd, KRef, Timeout) ->
-    receive
-	{KRef, Cmd, Msg} ->
-	    Msg
-    after TimeOut ->
-	    {error, timeout}
-    end;
-wait_rsp(?FIND_VALUE_RSP) ->
-    receive 
-	{_Parent, ?FIND_VALUE_RSP, Data} ->
-	    if is_binary(Data) ->
-		    {ok, Data};
-	       is_list(Data) ->
-		    resolve_find_node(Data)
-	    end
-    after ?PTIMEOUT ->
-	    {error, timeout}
-    end;
-wait_rsp(?STORE_RSP) ->
-    receive 
-	{_Parent, ?STORE_RSP, Data} ->
-	    {ok, Data}
-    after ?PTIMEOUT ->
-	    {error, timeout}
     end.
 
+
 %% wait the find_node response 
-wait_rsp_iter(KRef, Target, SearchList, Timeout) ->
+wait_rsp_iter(KRef, Target, SearchList, Discard, Timeout) ->
+    wait_rsp_iter1(Kref, Target, SearchList, Discard, Timeout, now()).
+
+wait_rsp_iter1(_KRef, _Target, _SearchList, _Discard, 0, _Start) ->
+    {error, timeout};
+wait_rsp_iter1(KRef, Target, SearchList, Discard, Timeout, Start)
+                                    when (is_integer(Timeout), Timeout >= 0)
+                                         orelse (Timeout =:= infinity) ->
     receive 
 	{KRef, ?FIND_NODE_RSP, Msg} ->
 	    case find_iter_stop(Msg, SearchList) of
-			true ->	% select the k un-queried nodes send find_node msg
-				KNodes = kad_searchlist:closest(?K, true, SearchList),
-				{Lives, Failed} = send_find_to_nodes(KNodes, ?FIND_NODE, Target),
-				NewNodes = wait_k_rsp(?FIND_NODE_RSP, length(KNodes)),
-				SL2 = add_searchlist(NewNodes, SearchList),
-				kad_searchlist:closest(?K, false, SL2);
-			false -> % continue request to get closest nodes
-				SL2 = add_searchlist(Msg, SearchList),
-				ANodes = kad_searchlist:closest(?A, true, SL2),
-				send_find_to_nodes(ANodes, ?FIND_NODE, Target),
-				wait_rsp_iter(KRef, Target, SL2, Timeout)
-	   end
-    %afetr 10000 ->
-	%	{error, timeout}
+		true ->	% select the k un-queried nodes send find_node msg
+		    KNodes = kad_searchlist:closest(?K, true, SearchList),
+		    {Lives, Failed} = send_find_to_nodes(KNodes, ?FIND_NODE, Target),
+		    NewNodes = wait_k_rsp(?FIND_NODE_RSP, length(KNodes)),
+		    SL2 = add_searchlist(NewNodes, SearchList),
+		    kad_searchlist:closest(?K, false, SL2);
+		false -> % continue request to get closest nodes
+		    SL2 = add_searchlist(Msg, SearchList),
+		    ANodes = kad_searchlist:closest(?A, true, SL2),
+		    send_find_to_nodes(?FIND_NODE, KRef, Target, ANodes, Discard),		    
+		    wait_rsp_iter(KRef, Target, SL2, Discard, Timeout)
+	    end;
+	afetr Timeout ->
+	    {error, timeout}
     end.
 
 
