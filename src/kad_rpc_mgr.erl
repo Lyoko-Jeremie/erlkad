@@ -23,6 +23,7 @@
 	  
 
 -record(item, {
+	  ref, % the msg reference
 	  id,  % the msg id
 	  data % the msg data
 	 }).
@@ -57,10 +58,10 @@ msgdata(Sender, Discard) ->
 msgdata(Sender) ->
     msgdata(Sender, false).
 
-%% @spec add(identify(), msgdata()) -> Ret
+%% @spec add(reference(), identify(), msgdata()) -> Ret
 %% @doc add a msg invoke to rpc manager
-add(MsgId, MsgData) ->
-    gen_server:cast(?SERVER, {add, MsgId, MsgData}).
+add(KRef, MsgId, MsgData) is_reference(KRef) andalso is_binary(MsgId) ->
+    gen_server:cast(?SERVER, {add, KRef, MsgId, MsgData}).
 
 
 %% @spec exist(identify()) -> bool()
@@ -97,13 +98,13 @@ handle_call({exist, MsgId}, _From, State) ->
 handle_call(_Msg, _From, State) ->
     {noreply, State}.
 
-handle_cast({add, MsgId, MsgData = #msgdata{}}, State) ->
-    ets:insert(?RPCTABLE, #item{id = MsgId, data = MsgData}),
+handle_cast({add, KRef, MsgId, MsgData = #msgdata{}}, State) ->
+    ets:insert(?RPCTABLE, #item{ref = KRef, id = MsgId, data = MsgData}),
     {noreply, State};
 handle_cast({dispatch, MsgId, _Src, Cmd, Msg}, State) ->
     case ets:lookup(?RPCTABLE, MsgId) of
-	[#item{data = #msgdata{pid = Pid, discard = Discard}}] ->
-	    do_notify_msg(Pid, Discard, Cmd, Msg);	
+	[#item{ref = KRef, data = #msgdata{pid = Pid, discard = Discard}}] ->
+	    do_notify_msg(Pid, KRef, Cmd, Msg, Discard);	
 	[] ->
 	    ?LOG("this msg:~p is not exist in rpc manager~n", [MsgId])	    
     end,
@@ -126,8 +127,8 @@ code_change(_Old, State, _Extra) ->
 %% internal API
 %%
 
-do_notify_msg(_Pid, true, _Cmd, _Msg) ->
+do_notify_msg(_Pid, _KRef, _Cmd, _Msg, true) ->
     ?LOG("discard the msg result\n"),
     ok;
-do_notify_msg(Pid, false, Cmd, Msg) when is_pid(Pid) ->
-    Pid ! {self(), Cmd, Msg}.
+do_notify_msg(Pid, KRef, Cmd, Msg, false) when is_pid(Pid) ->
+    Pid ! {KRef, Cmd, Msg}.
