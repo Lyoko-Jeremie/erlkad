@@ -13,7 +13,7 @@
 -export([find_node/3, find_node/4]).
 -export([find_value/3, find_value/4]).
 -export([store/5, delete/2]).
--export([wait_rsp/1, wait_rsp_iter/2]).
+-export([wait_rsp/3, wait_rsp_iter/4]).
 
 %% @doc bootstrap the kad
 bootstrap({Addr, Port} = G) ->
@@ -53,7 +53,7 @@ ping_first(Addr, Port, Sync, Timeout) ->
 	false  ->
 	    MsgId = kad_rpc_mgr:msgid(),
 	    Msg = kad_protocol:gen_msg(?PING_FIRST, dummy, MsgId, dummy),
-	    case send_msg(Addr, Port, MsgId, Msg, false) of
+	    case send_msg(Addr, Port, KRef, MsgId, Msg, false) of
 		ok ->
 		    if Sync ->
 			    case wait_rsp(?PING_FIRST_RSP, KRef, Timeout) of
@@ -90,7 +90,7 @@ ping(Node, Addr, Port, Sync, Timeout) when is_binary(Node)  ->
 	false -> 
 	    MsgId = kad_rpc_mgr:msgid(),
 	    Msg = kad_protocol:gen_msg(?PING, Node, MsgId, dummy),
-	    case send_msg(Addr, Port, MsgId, Msg, false) of
+	    case send_msg(Addr, Port, KRef, MsgId, Msg, false) of
 		ok ->
 		    if Sync -> % sync wait the response
 			    case wait_rsp(?PING_RSP, KRef, Timeout) of
@@ -114,13 +114,13 @@ find_node(Id, Sync, Discard, Timeout) when is_binary(Id) ->
     %get alpha closest nodes
     {N, Closest} = kad_routing:closest(Id, ?A),
     ?LOG("get ~p Closest Node~n", [N]),
-    {Success, Failed} = send_find_to_nodes(?FIND_NODE, Id, Closest, Discard),
+    KRef = make_ref(),
+    {Success, Failed} = send_find_to_nodes(?FIND_NODE, Id, KRef, Closest, Discard),
     % process the contacts which send request error
     process_req_error(Failed),
-    KRef = make_ref(),
     case Sync of
 	true -> % wait the response
-	    case wait_rsp_iter(KRef, Timeout, Node, kad_searchlist:new(Id)) of
+	    case wait_rsp_iter(KRef, Node, kad_searchlist:new(Id), Timeout) of
 		{error, Reason} ->
 		    {error, Reason};
 		Rsp ->
@@ -176,16 +176,25 @@ is_self(Node) ->
 is_self({_Ip, _Port} = Addr) ->
     Addr =:= kad_node:address().
 
+%% send msg
+send_msg(Addr, Port, KRef, MsgId, Msg, Discard) ->
+    case kad_net:send(Addr, Port, Msg) of
+	ok -> % add the msg to the rpc manager
+	    kad_rpc_mgr:add(KRef, MsgId, kad_rpc:mgr:msgdata(self(), Discard)),
+	    ok;
+	Error ->
+	    Error
+    end.
 
-%% send cmd  to nodes
-send_find_to_nodes(Cmd, Node, Nodes, Discard) ->
+%% send cmd to nodes
+send_find_to_nodes(Cmd, Node, KRef, Nodes, Discard) ->
     % send reqeust
     Ret = 
     lists:map(fun(#kad_contact{id = Dest, ip = Addr, port = Port}) -> 
 		         % gen the msg
 		         MsgId = kad_rpc_mgr:msgid(),
 			 Msg = kad_protocol:gen_msg(Cmd, Dest, Msgid, Node),
-		         send_msg(Addr, Port, MsgId, Msg, Discard)
+		         send_msg(Addr, Port, KRef, MsgId, Msg, Discard)			 
 	      end, 
 	      Nodes),
     FSuccess = fun(ok) -> true;
@@ -205,16 +214,11 @@ wait_rsp(?PING_FIRST_RSP = Cmd, KRef, Timeout) ->
     after Timeout ->
 	    {error, timeout}
     end;
-wait_rsp(?PING_RSP) ->
+wait_rsp(?PING_RSP = Cmd, KRef, Timeout) ->
     receive
-	{_Parent, ?PING_RSP, Msg} ->
-	    case Msg of
-			none ->
-				ok;
-			Key ->
-				{ok, Key}
-		end
-    after ?PTIMEOUT ->
+	{KRef, Cmd, Msg} ->
+	    Msg
+    after TimeOut ->
 	    {error, timeout}
     end;
 wait_rsp(?FIND_VALUE_RSP) ->
@@ -237,9 +241,9 @@ wait_rsp(?STORE_RSP) ->
     end.
 
 %% wait the find_node response 
-wait_rsp_iter(Target, SearchList) ->
+wait_rsp_iter(KRef, Target, SearchList, Timeout) ->
     receive 
-	{Parent, ?FIND_NODE_RSP, Msg} ->
+	{KRef, ?FIND_NODE_RSP, Msg} ->
 	    case find_iter_stop(Msg, SearchList) of
 			true ->	% select the k un-queried nodes send find_node msg
 				KNodes = kad_searchlist:closest(?K, true, SearchList),
@@ -251,7 +255,7 @@ wait_rsp_iter(Target, SearchList) ->
 				SL2 = add_searchlist(Msg, SearchList),
 				ANodes = kad_searchlist:closest(?A, true, SL2),
 				send_find_to_nodes(ANodes, ?FIND_NODE, Target),
-				wait_rsp_iter(Target, SL2)
+				wait_rsp_iter(KRef, Target, SL2, Timeout)
 	   end
     %afetr 10000 ->
 	%	{error, timeout}
@@ -284,14 +288,3 @@ FAdd = fun(#kad_contact{} = Node, List) ->
 	       kad_searchlist:add(Node, List)
        end,
     lists:foldl(FAdd, Search, Nodes).
-
-
-%% send msg
-send_msg(Addr, Port, MsgId, Msg, Discard) ->
-    case kad_net:send(Addr, Port, Msg) of
-	ok -> % add the msg to the rpc manager
-	    kad_rpc_mgr:add(MsgId, kad_rpc:mgr:msgdata(self(), Discard)),
-	    ok;
-	Error ->
-	    Error
-    end.
