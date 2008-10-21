@@ -1,0 +1,31 @@
+启动两个节点：
+1,启动一个节点作为gateway
+application:start(kad).
+
+
+2,启动一个节点接入kad网络
+application:start(kad).
+kad_api:bootstrap(Ip, Port).
+
+
+
+我们做一个基于DHT的搜人应用：
+我们可以加入某个人际网（DHT网，kad网），
+随后我们可以搜索某人是否有人知道。
+知道可以给予回答。
+
+find_person.erl
+
+-export([start/0]).
+-export([iknow/1, find/1]).
+
+%% join the dht network
+start() ->
+    kad_api:bootstrap().
+
+%% announce the persons I know
+iknow(Name, Desc) ->
+    kad_api:store(Name, Desc).
+
+find(Name) ->
+    kad_api:find(Name).
