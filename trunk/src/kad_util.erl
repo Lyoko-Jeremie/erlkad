@@ -11,6 +11,7 @@
 -export([now_ms/0]).
 -export([id_to_integer/1, integer_to_id/2, distance/2]).
 -export([takewhile/3]).
+-export([start_timer/3, cancel_timer/1]).
 
 %% @spec randid() -> binary()
 %% @doc gen the random 160-bytes identify
@@ -108,3 +109,18 @@ takewhile1(Pred, Acc, [H | T], AccL) ->
 		break ->
 			takewhile1(Pred, Acc, [], AccL)
 	end.
+
+
+%% @doc start the timer, the Timer can be either integer(in ms unit) or infinity
+start_timer(infinity, Dest, Msg) when is_pid(Dest) orelse is_atom(Dest) ->
+    {timer, infinity};
+start_timer(Time, Dest, Msg) when is_pid(Dest) orelse is_atom(Dest) ->
+    erlang:start_timer(Time, Dest, Msg).
+
+%% cancel the timer
+cancel_timer({timer, infinity}) ->
+    false;
+cancel_timer(Timer) when is_reference(Timer) ->
+    erlang:cancel_timer(Timer).
+
+   

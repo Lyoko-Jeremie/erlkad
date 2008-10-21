@@ -53,7 +53,7 @@ ping_first(Addr, Port, Sync, Timeout) ->
 	false  ->
 	    MsgId = kad_rpc_mgr:msgid(),
 	    Msg = kad_protocol:gen_msg(?PING_FIRST, dummy, MsgId, dummy),
-	    case send_msg(Addr, Port, KRef, MsgId, Msg, false) of
+	    case send_msg(Addr, Port, KRef, MsgId, Msg) of
 		ok ->
 		    if Sync ->
 			    case wait_rsp(?PING_FIRST_RSP, KRef, Timeout) of
@@ -90,7 +90,7 @@ ping(Node, Addr, Port, Sync, Timeout) when is_binary(Node)  ->
 	false -> 
 	    MsgId = kad_rpc_mgr:msgid(),
 	    Msg = kad_protocol:gen_msg(?PING, Node, MsgId, dummy),
-	    case send_msg(Addr, Port, KRef, MsgId, Msg, false) of
+	    case send_msg(Addr, Port, KRef, MsgId, Msg) of
 		ok ->
 		    if Sync -> % sync wait the response
 			    case wait_rsp(?PING_RSP, KRef, Timeout) of
@@ -108,28 +108,54 @@ ping(Node, Addr, Port, Sync, Timeout) when is_binary(Node)  ->
     end.
 
 
-%% find the closest nodes to the Id
-find_node(Id, Sync, Discard) ->
-    find_node(Id, Sync, Discard, infinity).
-find_node(Id, Sync, Discard, Timeout) when is_binary(Id) ->
+%% find the nodes close to the Id
+%% return {ok, KRef} if the Sync is false, and then the Caller will receive the msg
+%%               {KRef, Cmd, Data}
+%% return {value, Value} if Sync is true
+%% return {error, Reason} if error
+find_node(Id) when is_binary(Id) ->
+    find_node(Id, infinity). 
+find_node(Id, Timeout) ->
+    find_node(Id, Timeout, true, false).
+find_node(Id, Timeout, Sync, Discard) ->
     ?LOG("find_node start:~p~n", [Id]),
     %get alpha closest nodes
     {N, Closest} = kad_routing:closest(Id, ?A),
     ?LOG("get ~p Closest Node~n", [N]),
     KRef = make_ref(),
-    {Success, Failed} = send_find_to_nodes(?FIND_NODE, KRef, Id, Closest, Discard),
-    % process the contacts which send request error
-    process_req_error(Failed),
+    Caller = self(),
     case Sync of
-	true -> % wait the response
-	    case wait_rsp_iter(KRef, Id, kad_searchlist:new(Id), Discard, Timeout) of
-		{error, Reason} ->
-		    {error, Reason};
-		Rsp ->
-		    {value, Rsp}
-	    end;
-	false ->
-	    {ok, KRef}
+       true ->
+           {Success, Failed} = send_find_to_nodes(?FIND_NODE, KRef, Id, Closest, ),
+           % process the contacts which send request error
+            process_req_error(Failed),
+	    TimerId = kad_util:start_timer(Timeout, self(), ok),
+            wait_rsp_iter(KRef, Id, kad_searchlist:new(Id), Discard, TimerId);	
+      false -> % is async
+          Receiver = 
+	  proc_lib:spawn(fun() ->
+	         Mref = erlang:monitor(process, Caller),
+		 receive 
+		     {Caller, Tag} ->  % start the find
+			{Success, Failed} = send_find_to_nodes(?FIND_NODE, KRef, Id, Closest, ),
+			 % process the contacts which send request error
+			 process_req_error(Failed),      
+			 TimerId = kad_util:start_timer(Timeout, self(), ok),
+			 Ret = wait_rsp_iter(KRef, Id, kad_searchlist:new(Id), Discard, TimerId),
+			 case Discard of
+			     true ->
+			        exit(normal);
+			     false ->
+			        % send the result to the caller
+			        Caller ! {KRef, Cmd, Ret}
+			end;
+		    {'DOWN',Mref,_,_,_} -> % Caller died before sending us the go-ahead.
+			  %% Give up silently.
+		         exit(normal)
+		end
+	    end),
+	 Receiver ! {Caller, KRef},
+	 {ok, KRef}
     end.
 
 %% find the value corresponding the key
@@ -182,24 +208,26 @@ is_self({_Ip, _Port} = Addr) ->
     Addr =:= kad_node:address().
 
 %% send msg
-send_msg(Addr, Port, KRef, MsgId, Msg, Discard) ->
+send_msg(Addr, Port, KRef, MsgId, Msg) ->
+    send_msg(Addr, Port, KRef, MsgId, Msg, self()).
+send_msg(Addr, Port, KRef, MsgId, Msg, Caller) ->
     case kad_net:send(Addr, Port, Msg) of
 	ok -> % add the msg to the rpc manager
-	    kad_rpc_mgr:add(KRef, MsgId, kad_rpc_mgr:msgdata(self(), Discard)),
+	    kad_rpc_mgr:add(KRef, MsgId, kad_rpc_mgr:msgdata(Caller)),
 	    ok;
 	Error ->
 	    Error
     end.
 
 %% send cmd to nodes
-send_find_to_nodes(Cmd, KRef, Node, Nodes, Discard) ->
+send_find_to_nodes(Cmd, KRef, Node, Nodes, Caller) ->
     % send reqeust
     Ret = 
     lists:map(fun(#kad_contact{id = Dest, ip = Addr, port = Port}) -> 
 		         % gen the msg
 		         MsgId = kad_rpc_mgr:msgid(),
 			 Msg = kad_protocol:gen_msg(Cmd, Dest, Msgid, Node),
-		         send_msg(Addr, Port, KRef, MsgId, Msg, Discard)			 
+		         send_msg(Addr, Port, KRef, MsgId, Msg, Caller)			 
 	      end, 
 	      Nodes),
     FSuccess = fun(ok) -> true;
@@ -221,14 +249,10 @@ wait_rsp(Cmd, KRef, Timeout) ->
     end.
 
 %% wait the find_node response 
-wait_rsp_iter(KRef, Target, SearchList, Discard, Timeout) ->
-    wait_rsp_iter1(Kref, Target, SearchList, Discard, Timeout, now()).
+wait_rsp_iter(KRef, Target, SearchList, Discard, TimerId) ->
+    wait_rsp_iter1(Kref, Target, SearchList, Discard, TimerId).
 
-wait_rsp_iter1(_KRef, _Target, _SearchList, _Discard, 0, _Start) ->
-    {error, timeout};
-wait_rsp_iter1(KRef, Target, SearchList, Discard, Timeout, Start)
-                                    when (is_integer(Timeout) andalso Timeout >= 0)
-                                         orelse (Timeout =:= infinity) ->
+wait_rsp_iter1(KRef, Target, SearchList, Discard, TimerId)
     receive 
 	{KRef, ?FIND_NODE_RSP, Msg} ->
 	    case find_iter_stop(Msg, SearchList) of
@@ -237,15 +261,16 @@ wait_rsp_iter1(KRef, Target, SearchList, Discard, Timeout, Start)
 		    {Lives, Failed} = send_find_to_nodes(KNodes, ?FIND_NODE, Target),
 		    NewNodes = wait_k_rsp(?FIND_NODE_RSP, length(KNodes)),
 		    SL2 = add_searchlist(NewNodes, SearchList),
-		    kad_searchlist:closest(?K, false, SL2);
+		    Ret = kad_searchlist:closest(?K, false, SL2),
+		    {value, Ret};
 		false -> % continue request to get closest nodes
 		    SL2 = add_searchlist(Msg, SearchList),
 		    ANodes = kad_searchlist:closest(?A, true, SL2),
 		    send_find_to_nodes(?FIND_NODE, KRef, Target, ANodes, Discard),		    
 		    wait_rsp_iter(KRef, Target, SL2, Discard, Timeout)
-	    end
-    after Timeout ->
-	    {error, timeout}
+	    end;
+       {timeout, TimerId, _} ->
+            {error, timeout}
     end.
 
 
