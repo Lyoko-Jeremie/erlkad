@@ -9,7 +9,7 @@
 -behaviour(gen_server).
 -export([start_link/0]).
 -export([msgid/0]).
--export([msgdata/1, msgdata/2]).
+-export([msgdata/0, msgdata/1]).
 -export([add/2, exist/1]).
 -export([dispatch/4]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -17,8 +17,7 @@
 
 -record(msgdata, {
 	  start_stamp, % msg kick off time
-	  pid,         % the msg send process pid
-	  discard = false  % if discard the result
+	  pid         % the msg send process pid	  
 	  }).
 	  
 
@@ -50,13 +49,11 @@ start_link() ->
 msgid() ->
     gen_server:call(?SERVER, msgid).
 
-%% @spec msgdata(pid(), bool()) -> msgdata()
+%% @spec msgdata(pid()) -> msgdata()
 %% @doc create msgdata 
-msgdata(Sender, Discard) ->
-    #msgdata{pid = Sender, discard = Discard, start_stamp = now()}.
-
-msgdata(Sender) ->
-    msgdata(Sender, false).
+msgdata() -> msgdata(self()).
+msgdata(Caller) ->
+    #msgdata{pid = Caller, start_stamp = now()}.
 
 %% @spec add(reference(), identify(), msgdata()) -> Ret
 %% @doc add a msg invoke to rpc manager
@@ -103,8 +100,8 @@ handle_cast({add, KRef, MsgId, MsgData = #msgdata{}}, State) ->
     {noreply, State};
 handle_cast({dispatch, MsgId, _Src, Cmd, Msg}, State) ->
     case ets:lookup(?RPCTABLE, MsgId) of
-	[#item{ref = KRef, data = #msgdata{pid = Pid, discard = Discard}}] ->
-	    do_notify_msg(Pid, KRef, Cmd, Msg, Discard);	
+	[#item{ref = KRef, data = #msgdata{pid = Pid}}] ->
+	    do_notify_msg(Pid, KRef, Cmd, Msg);	
 	[] ->
 	    ?LOG("this msg:~p is not exist in rpc manager~n", [MsgId])	    
     end,
@@ -121,14 +118,9 @@ terminate(_Reason, _State) ->
 code_change(_Old, State, _Extra) ->
     {ok, State}.
 
-
-
 %%
 %% internal API
 %%
 
-do_notify_msg(_Pid, _KRef, _Cmd, _Msg, true) ->
-    ?LOG("discard the msg result\n"),
-    ok;
-do_notify_msg(Pid, KRef, Cmd, Msg, false) when is_pid(Pid) ->
+do_notify_msg(Pid, KRef, Cmd, Msg) when is_pid(Pid) ->
     Pid ! {KRef, Cmd, Msg}.
