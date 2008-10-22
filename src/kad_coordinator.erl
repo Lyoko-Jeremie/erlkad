@@ -23,6 +23,13 @@ dispatch(Addr, Port, Packet) when is_binary(Packet) ->
 		    reply(Addr, Port, Src, Id, Cmd, Data);
 		?OP_RSP ->
 		    %% it's response
+		    % if the msg is PING_FIRST_RSP, we must send a PING_FIRST_ACK msg
+		    case Cmd of
+		        ?PING_FIRST_RSP -> 
+			    send_ack(?PING_FIRST_ACK, Addr, Port, Src);
+			_ ->
+			    ok
+	            end,
 		    % rpc manager dispatch the msg
 		    case kad_rpc_mgr:dispatch(Id, Src, Cmd, Data) of
 			ok ->
@@ -92,3 +99,10 @@ do_reply(Dest, Id, ?STORE, {Key, Data}) ->
     end;
 do_reply(Dest, Id, ?DELETE, _Key) ->
    kad_protocol:gen_rsp(?DELETE, Dest, Id, ?E_NOTIMPL).
+
+
+%% send ack
+send_ack(Cmd, Addr, Port, Dest) ->
+    MsgId = kad_rpc_mgr:msgid(),
+    Msg = kad_protocol:gen_msg(Cmd, Dest, MsgId, dummy),
+    kad_net:send(Addr, Port, Msg).

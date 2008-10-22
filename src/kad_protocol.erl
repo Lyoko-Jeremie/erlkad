@@ -73,6 +73,8 @@ gen_msg(?DELETE_RSP, Hd, _Dummy) ->
 %% @spec optype(cmd()) -> ?OP_REQ | ?OP_RSP
 %% @doc return ?OP_REQ if the cmd is a request, 
 %%      return ?OP_RSP if the cmd is a response.
+optype(?PING_FIRST) ->
+    ?OP_REQ;
 optype(?PING) ->
     ?OP_REQ;
 optype(?STORE) ->
@@ -83,6 +85,8 @@ optype(?FIND_VALUE) ->
     ?OP_REQ;
 optype(?DELETE) ->
     ?OP_REQ;
+optype(?PING_FIRST_RSP) ->
+    ?OP_RSP;    
 optype(?PING_RSP) ->
     ?OP_RSP;
 optype(?STORE_RSP) ->
@@ -93,6 +97,9 @@ optype(?FIND_VALUE_RSP) ->
     ?OP_RSP;
 optype(?DELETE_RSP) ->
     ?OP_RSP.
+optype(?PING_FIRST_ACK) ->
+    ?OP_RSP.
+
 
 %%
 %% internal API
