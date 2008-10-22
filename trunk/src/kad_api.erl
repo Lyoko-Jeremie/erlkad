@@ -17,18 +17,18 @@
 
 %% @doc bootstrap the kad
 bootstrap({Addr, Port} = G) ->
-    case kad_api:ping(<<>>, Addr, Port, true) of
-	{ok, Id} ->
+    case kad_api:ping_first(Addr, Port, true) of
+	{value, Id} ->
 	    % find self
-	    kad_api:find_node(kad_node:id(), false, true);	    
+	    kad_api:find_node(kad_node:id(), infinity, false, true); 
 	{error, Reason} ->
 	    % pint the gateway error
 	    ?LOG("bootstrap ping the gateway error:~p\n", [Reason]),
 	    {error, Reason}
     end;		
 			
-bootstrap([_|_] = _G) ->
-    ?NOT_IMPL.
+bootstrap([_|_] = Gs) ->
+    [bootstrap(E) || E <- Gs].
 
 %% @spec ping_first(ip_address(), integer(), bool()) -> {value, Id} | {error, Reason} | {ok, KRef}
 %% @doc first time ping the node, now we don't know the node's id
@@ -56,12 +56,7 @@ ping_first(Addr, Port, Sync, Timeout) ->
 	    case send_msg(Addr, Port, KRef, MsgId, Msg) of
 		ok ->
 		    if Sync ->
-			    case wait_rsp(?PING_FIRST_RSP, KRef, Timeout) of
-				{error, Reason} ->
-				    {error, Reason};
-				Rsp ->
-				    {value, Rsp}
-			    end;
+			    wait_rsp(?PING_FIRST_RSP, KRef, Timeout);
 		       true  ->
 			    {ok, KRef}
 		    end;
@@ -93,12 +88,7 @@ ping(Node, Addr, Port, Sync, Timeout) when is_binary(Node)  ->
 	    case send_msg(Addr, Port, KRef, MsgId, Msg) of
 		ok ->
 		    if Sync -> % sync wait the response
-			    case wait_rsp(?PING_RSP, KRef, Timeout) of
-				{error, Reason} ->
-				    {error, Reason};
-				Rsp ->
-				    {value, Rsp}
-			    end;
+			    wait_rsp(?PING_RSP, KRef, Timeout);
 		       true ->
 			    {ok, KRef}
 		    end;
@@ -243,7 +233,7 @@ process_req_error(_Ret) ->
 wait_rsp(Cmd, KRef, Timeout) ->
     receive 
 	{KRef, Cmd, Msg} ->
-	    Msg
+	    {value, Msg}
     after Timeout ->
 	    {error, timeout}
     end.
