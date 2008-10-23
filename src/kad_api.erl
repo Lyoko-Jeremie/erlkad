@@ -10,15 +10,15 @@
 -export([bootstrap/1]).
 -export([ping_first/3, ping_first/4]).
 -export([ping/4, ping/5]).
--export([find_node/4, find_node/4]).
+-export([find_node/1, find_node/2, find_node/4]).
 -export([find_value/3, find_value/4]).
 -export([store/5, delete/2]).
 -export([wait_rsp/3, wait_rsp_iter/5]).
 
 %% @doc bootstrap the kad
-bootstrap({Addr, Port} = G) ->
+bootstrap({Addr, Port}) ->
     case kad_api:ping_first(Addr, Port, true) of
-	{value, Id} ->
+	{value, _Id} ->
 	    % find self
 	    kad_api:find_node(kad_node:id(), infinity, false, true); 
 	{error, Reason} ->
@@ -36,7 +36,6 @@ bootstrap([_|_] = Gs) ->
 %%      the send process will receive the msg {KRef, Cmd, Msg}
 ping_first(Addr, Port, Sync) ->
     ping_first(Addr, Port, Sync, infinity).
-
 ping_first(Addr, Port, Sync, Timeout) ->
     ?LOG("first ping the node:~p:~p\n", [Addr, Port]),
     IsSelf = is_self({Addr, Port}),
@@ -116,7 +115,7 @@ find_node(Id, Timeout, Sync, Discard) ->
     Caller = self(),
     case Sync of
 	true ->
-	    {Success, Failed} = send_find_to_nodes(?FIND_NODE, KRef, Id, Closest),
+	    {_Success, Failed} = send_find_to_nodes(?FIND_NODE, KRef, Id, Closest),
             % process the contacts which send request error
             process_req_error(Failed),
 	    TimerId = kad_util:start_timer(Timeout, self(), ok),
@@ -126,8 +125,8 @@ find_node(Id, Timeout, Sync, Discard) ->
 		proc_lib:spawn(fun() ->
 		       Mref = erlang:monitor(process, Caller),
 		       receive 
-			   {Caller, Tag} ->  % start the find
-			       {Success, Failed} = send_find_to_nodes(?FIND_NODE, KRef, Id, Closest),
+			   {Caller, _Tag} ->  % start the find
+			       {_Success, Failed} = send_find_to_nodes(?FIND_NODE, KRef, Id, Closest),
 		               % process the contacts which send request error
 			       process_req_error(Failed),      
 			       TimerId = kad_util:start_timer(Timeout, self(), ok),
@@ -152,38 +151,14 @@ find_node(Id, Timeout, Sync, Discard) ->
 %% find the value corresponding the key
 find_value(Key, 1, Sync) ->
     find_value(Key, 1, Sync, infinity).
-find_value(Key, 1, Sync, Timeout) when is_binary(Key) ->
-    ?LOG("find value start:~p\n", [Key]),
-    case kad_store:lookup(Key) of
-	{value, Value} -> % is store in lcoal, just return the value
-	    ?LOG("the value is in local, just return\n"),
-	    {ok, Value};
-	none -> % is not in local
-	    % send request
-	    {N, Closest} = kad_routing:closest(Key, ?A),
-	    KRef = make_ref(),
-	    Ret = send_find_to_nodes(?FIND_VALUE, KRef, Key, Closest, false),
-	    Ret,
-	    % wait the response
-	    wait_rsp(?FIND_VALUE_RSP)
-    end.
+find_value(Key, 1, _Sync, _Timeout) when is_binary(Key) ->
+    ?NOT_IMPL.
 
 %% @spec store(ip_address(), integer(), identify(), key(), binary()) -> ok | {error, Reason}
 %% @doc store the key-value pair in kad network
-store(Addr, Port, Node, {Key, Data}, Sync) when is_binary(Key) andalso is_binary(Data) ->
+store(_Addr, _Port, Node, {Key, Data}, _Sync) when is_binary(Key) andalso is_binary(Data) ->
     ?LOG("store the key-value:~p to:~p\n", [{Key, Data}, Node]),
-    Msg = kad_protocol:gen_cmd(?STORE, Node, {Key, Data}),
-    case kad_net:send(Addr, Port, Msg) of
-		ok ->
-			case Sync of
-				true -> 
-					wait_rsp(?STORE_RSP);
-				false ->
-					ok
-			end;
-		{error, Reason} ->
-			{error, Reason}
-	end.
+    ok.
 
 delete(_Key, _Sync) ->
     ok.
@@ -193,10 +168,11 @@ delete(_Key, _Sync) ->
 %%
 
 %% if the Node is ourself
-is_self(Node) ->
-    Node =:= kad_node:id();
 is_self({_Ip, _Port} = Addr) ->
-    Addr =:= kad_node:address().
+    Addr =:= kad_node:address();
+is_self(Node) ->
+    Node =:= kad_node:id().
+
 
 %% send msg
 send_msg(Addr, Port, KRef, MsgId, Msg) ->
@@ -219,7 +195,7 @@ send_find_to_nodes(Cmd, KRef, Key, Nodes, Caller) ->
     lists:map(fun(#kad_contact{id = Dest, ip = Addr, port = Port}) -> 
 		         % gen the msg
 		         MsgId = kad_rpc_mgr:msgid(),
-			 Msg = kad_protocol:gen_msg(Cmd, Dest, Msgid, Key),
+			 Msg = kad_protocol:gen_msg(Cmd, Dest, MsgId, Key),
 		         send_msg(Addr, Port, KRef, MsgId, Msg, Caller)			 
 	      end, 
 	      Nodes),
@@ -243,7 +219,7 @@ wait_rsp(Cmd, KRef, Timeout) ->
 
 %% wait the find_node response 
 wait_rsp_iter(KRef, Target, SearchList, Discard, TimerId) ->
-    wait_rsp_iter1(Kref, Target, SearchList, Discard, TimerId).
+    wait_rsp_iter1(KRef, Target, SearchList, Discard, TimerId).
 
 wait_rsp_iter1(KRef, Target, SearchList, Discard, TimerId) ->
     receive 
@@ -251,8 +227,8 @@ wait_rsp_iter1(KRef, Target, SearchList, Discard, TimerId) ->
 	    case find_iter_stop(Msg, SearchList) of
 		true ->	% select the k un-queried nodes send find_node msg
 		    KNodes = kad_searchlist:closest(?K, true, SearchList),
-		    {Lives, Failed} = send_find_to_nodes(KNodes, ?FIND_NODE, Target),
-		    NewNodes = wait_k_rsp(?FIND_NODE_RSP, length(KNodes)),
+		    {_Lives, _Failed} = send_find_to_nodes(?FIND_NODE, KRef, Target, KNodes),
+		    NewNodes = wait_k_rsp(?FIND_NODE_RSP, length(KNodes), SearchList),
 		    SL2 = add_searchlist(NewNodes, SearchList),
 		    Ret = kad_searchlist:closest(?K, false, SL2),
 		    {value, Ret};
@@ -260,7 +236,7 @@ wait_rsp_iter1(KRef, Target, SearchList, Discard, TimerId) ->
 		    SL2 = add_searchlist(Msg, SearchList),
 		    ANodes = kad_searchlist:closest(?A, true, SL2),
 		    send_find_to_nodes(?FIND_NODE, KRef, Target, ANodes, Discard),		    
-		    wait_rsp_iter(KRef, Target, SL2, Discard, Timeout)
+		    wait_rsp_iter(KRef, Target, SL2, Discard, TimerId)
 	    end;
        {timeout, TimerId, _} ->
             {error, timeout}
@@ -268,21 +244,21 @@ wait_rsp_iter1(KRef, Target, SearchList, Discard, TimerId) ->
 
 
 find_iter_stop(Nodes, SearchList) ->
-	FCloser = fun(#kad_contact{id = Id}) ->
-					kad_searchlist:is_closer(Id, SearchList)
-				end,
-	not lists:any(FCloser, Nodes).
+    FCloser = fun(#kad_contact{id = Id}) ->
+		      kad_searchlist:is_closer(Id, SearchList)
+	      end,
+    not lists:any(FCloser, Nodes).
 
 
-wait_k_rsp(Cmd, N, SearchList) ->	
-    wait_k_rsp(Cmd, N, []).
+wait_k_rsp(Cmd, N, _SearchList) ->	
+    wait_k_rsp1(Cmd, N, []).
 
-wait_k_rsp(Cmd, 0, Acc) ->
+wait_k_rsp1(_Cmd, 0, Acc) ->
     Acc;
-wait_k_rsp(Cmd, N, Acc) ->
+wait_k_rsp1(Cmd, N, Acc) ->
     receive 
 	{_Parent, Cmd, Data} ->
-	    wait_k_rsp(Cmd, N - 1, [Data | Acc])
+	    wait_k_rsp1(Cmd, N - 1, [Data | Acc])
     after 100000 ->
 	    {error, timeout}
     end.
