@@ -112,7 +112,7 @@ takewhile1(Pred, Acc, [H | T], AccL) ->
 
 
 %% @doc start the timer, the Timer can be either integer(in ms unit) or infinity
-start_timer(infinity, Dest, Msg) when is_pid(Dest) orelse is_atom(Dest) ->
+start_timer(infinity, Dest, _Msg) when is_pid(Dest) orelse is_atom(Dest) ->
     {timer, infinity};
 start_timer(Time, Dest, Msg) when is_pid(Dest) orelse is_atom(Dest) ->
     erlang:start_timer(Time, Dest, Msg).
@@ -123,4 +123,3 @@ cancel_timer({timer, infinity}) ->
 cancel_timer(Timer) when is_reference(Timer) ->
     erlang:cancel_timer(Timer).
 
-   
