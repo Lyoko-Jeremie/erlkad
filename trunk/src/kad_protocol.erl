@@ -96,7 +96,7 @@ optype(?FIND_NODE_RSP) ->
 optype(?FIND_VALUE_RSP) ->
     ?OP_RSP;
 optype(?DELETE_RSP) ->
-    ?OP_RSP.
+    ?OP_RSP;
 optype(?PING_FIRST_ACK) ->
     ?OP_RSP.
 

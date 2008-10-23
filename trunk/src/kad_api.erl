@@ -115,37 +115,38 @@ find_node(Id, Timeout, Sync, Discard) ->
     KRef = make_ref(),
     Caller = self(),
     case Sync of
-       true ->
-           {Success, Failed} = send_find_to_nodes(?FIND_NODE, KRef, Id, Closest, ),
-           % process the contacts which send request error
+	true ->
+	    {Success, Failed} = send_find_to_nodes(?FIND_NODE, KRef, Id, Closest),
+            % process the contacts which send request error
             process_req_error(Failed),
 	    TimerId = kad_util:start_timer(Timeout, self(), ok),
             wait_rsp_iter(KRef, Id, kad_searchlist:new(Id), Discard, TimerId);	
-      false -> % is async
-          Receiver = 
-	  proc_lib:spawn(fun() ->
-	         Mref = erlang:monitor(process, Caller),
-		 receive 
-		     {Caller, Tag} ->  % start the find
-			{Success, Failed} = send_find_to_nodes(?FIND_NODE, KRef, Id, Closest, ),
-			 % process the contacts which send request error
-			 process_req_error(Failed),      
-			 TimerId = kad_util:start_timer(Timeout, self(), ok),
-			 Ret = wait_rsp_iter(KRef, Id, kad_searchlist:new(Id), Discard, TimerId),
-			 case Discard of
-			     true ->
-			        exit(normal);
-			     false ->
-			        % send the result to the caller
-			        Caller ! {KRef, Cmd, Ret}
-			end;
-		    {'DOWN',Mref,_,_,_} -> % Caller died before sending us the go-ahead.
-			  %% Give up silently.
-		         exit(normal)
-		end
-	    end),
-	 Receiver ! {Caller, KRef},
-	 {ok, KRef}
+	false -> % is async
+	    Receiver = 
+		proc_lib:spawn(fun() ->
+		       Mref = erlang:monitor(process, Caller),
+		       receive 
+			   {Caller, Tag} ->  % start the find
+			       {Success, Failed} = send_find_to_nodes(?FIND_NODE, KRef, Id, Closest),
+		               % process the contacts which send request error
+			       process_req_error(Failed),      
+			       TimerId = kad_util:start_timer(Timeout, self(), ok),
+			       Ret = wait_rsp_iter(KRef, Id, kad_searchlist:new(Id), Discard, TimerId),
+			       case Discard of
+				   true ->
+				       exit(normal);
+				   false ->
+				       % send the result to the caller
+				       Caller ! {KRef, Ret}
+			       end;
+			   {'DOWN',Mref,_,_,_} -> 
+			       % Caller died before sending us the go-ahead.
+			       % Give up silently.
+			       exit(normal)
+		       end
+		    end),
+	    Receiver ! {Caller, KRef},
+	    {ok, KRef}
     end.
 
 %% find the value corresponding the key
@@ -210,13 +211,15 @@ send_msg(Addr, Port, KRef, MsgId, Msg, Caller) ->
     end.
 
 %% send cmd to nodes
-send_find_to_nodes(Cmd, KRef, Node, Nodes, Caller) ->
+send_find_to_nodes(Cmd, KRef, Key, Nodes) ->
+    send_find_to_nodes(Cmd, KRef, Key, Nodes, self()).
+send_find_to_nodes(Cmd, KRef, Key, Nodes, Caller) ->
     % send reqeust
     Ret = 
     lists:map(fun(#kad_contact{id = Dest, ip = Addr, port = Port}) -> 
 		         % gen the msg
 		         MsgId = kad_rpc_mgr:msgid(),
-			 Msg = kad_protocol:gen_msg(Cmd, Dest, Msgid, Node),
+			 Msg = kad_protocol:gen_msg(Cmd, Dest, Msgid, Key),
 		         send_msg(Addr, Port, KRef, MsgId, Msg, Caller)			 
 	      end, 
 	      Nodes),
@@ -242,7 +245,7 @@ wait_rsp(Cmd, KRef, Timeout) ->
 wait_rsp_iter(KRef, Target, SearchList, Discard, TimerId) ->
     wait_rsp_iter1(Kref, Target, SearchList, Discard, TimerId).
 
-wait_rsp_iter1(KRef, Target, SearchList, Discard, TimerId)
+wait_rsp_iter1(KRef, Target, SearchList, Discard, TimerId) ->
     receive 
 	{KRef, ?FIND_NODE_RSP, Msg} ->
 	    case find_iter_stop(Msg, SearchList) of

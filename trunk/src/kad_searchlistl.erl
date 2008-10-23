@@ -6,7 +6,7 @@
 -vsn('0.1').
 -include("kad.hrl").
 
--export([new/1, add/2, iscloser/2, closest/3, to_list/1]).
+-export([new/1, add/2, is_closer/2, closest/3, to_list/1]).
 -record(item, {
 	  used = false, % this node is used?
 	  dist,		  % the distance to target
@@ -59,11 +59,11 @@ closest(N, true, State) ->
 			break
 		end
 	end,
-    kad_util:takewhile(FUnUsed, 0, State#searchlist.list).
+    kad_util:takewhile(F, 0, State#searchlist.list).
 
 
 to_list(State) ->
-    State#searchlist.list;
+    State#searchlist.list.
 %% 
 %% internal API
 %%

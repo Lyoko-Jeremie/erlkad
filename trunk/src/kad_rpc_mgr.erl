@@ -10,7 +10,7 @@
 -export([start_link/0]).
 -export([msgid/0]).
 -export([msgdata/0, msgdata/1]).
--export([add/2, exist/1]).
+-export([add/3, exist/1]).
 -export([dispatch/4]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
                             terminate/2, code_change/3]).
@@ -57,7 +57,7 @@ msgdata(Caller) ->
 
 %% @spec add(reference(), identify(), msgdata()) -> Ret
 %% @doc add a msg invoke to rpc manager
-add(KRef, MsgId, MsgData) is_reference(KRef) andalso is_binary(MsgId) ->
+add(KRef, MsgId, MsgData) when is_reference(KRef) andalso is_binary(MsgId) ->
     gen_server:cast(?SERVER, {add, KRef, MsgId, MsgData}).
 
 
