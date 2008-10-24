@@ -151,8 +151,23 @@ find_node(Id, Timeout, Sync, Discard) ->
 %% find the value corresponding the key
 find_value(Key, 1, Sync) ->
     find_value(Key, 1, Sync, infinity).
-find_value(Key, 1, _Sync, _Timeout) when is_binary(Key) ->
-    ?NOT_IMPL.
+find_value(Key, 1, Sync, _Timeout) when is_binary(Key) ->
+    ?LOG("find_value start:~p~n", [Key]),    
+    KRef = make_ref(),
+    Caller = self(),    
+    case kad_store:lookup(Key) of
+    	none -> % don't have the key in local
+    			find_value_remote(KRef, Caller, Key, Sync, Timeout);
+    	{value, Value} ->
+    		 case Sync of
+    		 	true -> {value, Value};
+    		 	false -> 
+    		 	  Caller ! {KRef, ?FIND_VALUE, Value},
+    		 	 	{ok, KRef}
+    		 end
+    end   
+    
+    	
 
 %% @spec store(ip_address(), integer(), identify(), key(), binary()) -> ok | {error, Reason}
 %% @doc store the key-value pair in kad network
@@ -199,10 +214,12 @@ send_find_to_nodes(Cmd, KRef, Key, Nodes, Caller) ->
 		         send_msg(Addr, Port, KRef, MsgId, Msg, Caller)			 
 	      end, 
 	      Nodes),
-    FSuccess = fun(ok) -> true;
-		  ({error, _}) -> false
+	  % zip the two list
+	  NodesRet = lists:zip(Nodes, Ret),
+    FSuccess = fun({_, ok}) -> true;
+		  ({_, {error, _}}) -> false
 	       end,				
-    lists:partition(FSuccess, Ret).
+    lists:partition(FSuccess, NodesRet).
 
 %% process the contacts which send request error
 process_req_error(_Ret) ->
@@ -269,3 +286,9 @@ FAdd = fun(#kad_contact{} = Node, List) ->
 	       kad_searchlist:add(Node, List)
        end,
     lists:foldl(FAdd, Search, Nodes).
+
+%% find the value from the remote nodes
+find_value_remote(KRef, Caller, Key, Sync, Timeout) ->
+	ok.
+    	  
+					
