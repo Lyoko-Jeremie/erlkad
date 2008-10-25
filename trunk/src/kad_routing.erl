@@ -61,7 +61,7 @@ all_nodes() ->
 random_nodes(I, N) ->
     gen_server:call(?SERVER, {random, I, N}).
 
-%% @spec refresh_bucket()
+%% @spec random_refresh_bucket() -> Ret
 %% @doc random select REFRESH_NODE_COUNT nodes in bucket to refresh
 random_refresh_bucket() ->
     [

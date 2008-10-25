@@ -31,7 +31,7 @@ idinc(Id) when is_binary(Id) ->
     N2 = N + 1,
     integer_to_id(N2, ?NODE_ID_LEN div 8).
 
-%% @spec
+%% @spec log2(integer()) -> integer()
 %% @doc return the 
 log2(X) when is_float(X) ->
     log2(trunc(X));
@@ -60,7 +60,7 @@ id_to_integer(<<C, Rest/binary>>, M, Acc) ->
 id_to_integer(<<>>, _M, Acc) ->
     Acc.
 
-%% @spec integer_to_id(integer) -> identify()
+%% @spec integer_to_id(integer(), integer()) -> identify()
 %% @doc convert integer to id
 integer_to_id(N, Len) when is_integer(N) ->
     Bin = integer_to_id(N),

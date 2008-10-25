@@ -70,7 +70,7 @@ gen_msg(?DELETE_RSP, Hd, _Dummy) ->
     <<Hd/binary, 0:16>>.
 
 
-%% @spec optype(cmd()) -> ?OP_REQ | ?OP_RSP
+%% @spec optype(cmd()) -> optype()
 %% @doc return ?OP_REQ if the cmd is a request, 
 %%      return ?OP_RSP if the cmd is a response.
 optype(?PING_FIRST) ->

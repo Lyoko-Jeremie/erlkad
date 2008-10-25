@@ -22,7 +22,17 @@
 -define(SERVER, ?MODULE).
 
 start_link(Addr, Port, Virtual) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, {Addr, Port, Virtual}, []).
+    ?LOG("kad_node start! ~p ~n", [{Addr, Port, Virtual}]),
+    ParsedIp =
+    if is_list(Addr) ->
+	    {ok, IpTuple} = inet_parse:address(Addr),
+	    IpTuple;
+       is_tuple(Addr) ->
+	    Addr;
+       any ->
+	    {0,0,0,0}
+    end,
+    gen_server:start_link({local, ?SERVER}, ?MODULE, {ParsedIp, Port, Virtual}, []).
 
 %% @spec id() -> identify()
 %% @doc the self node id
@@ -75,7 +85,7 @@ handle_call({get, address}, _From, State) ->
 handle_call({get, virtual}, _From, State) ->
     {reply, State#state.virtual, State};
 handle_call({get, contact}, _From, State) ->
-    {reply, State, State};
+    {reply, State#state.node, State};
 handle_call(_Msg, _From, State) ->
     {noreply, State}.
 
