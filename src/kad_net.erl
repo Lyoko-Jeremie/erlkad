@@ -33,7 +33,7 @@ start_link() ->
 start_link(Opts) when is_list(Opts) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, Opts, []).
 
-%% @spec
+%% @spec stop(term()) -> ok
 %% @doc stop the kad udp server
 stop(Reason) ->
     gen_server:cast(?SERVER, {stop, Reason}).

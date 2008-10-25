@@ -49,7 +49,7 @@ start_link() ->
 msgid() ->
     gen_server:call(?SERVER, msgid).
 
-%% @spec msgdata(pid()) -> msgdata()
+%% @spec msgdata() -> msgdata()
 %% @doc create msgdata 
 msgdata() -> msgdata(self()).
 msgdata(Caller) ->
