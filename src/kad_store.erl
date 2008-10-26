@@ -1,7 +1,7 @@
 %%% @author litao cheng <litaocheng@gmail.com>
 %%% @copyright 2008 toquick.com.
 %%% @doc the store module
--module(kad_stroe).
+-module(kad_store).
 -author('litaocheng@gmail.com').
 -vsn('0.1').
 -include("kad.hrl").
