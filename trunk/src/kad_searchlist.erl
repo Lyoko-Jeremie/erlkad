@@ -1,7 +1,7 @@
 %%% @author litao cheng <litaocheng@gmail.com>
 %%% @copyright 2008 toquick.com.
 %%% @doc handle the temp search result list
--module(kad_searchlistl).
+-module(kad_searchlist).
 -author('litaocheng@gmail.com').
 -vsn('0.1').
 -include("kad.hrl").
