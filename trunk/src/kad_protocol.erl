@@ -108,7 +108,7 @@ optype(?PING_FIRST_ACK) ->
 %% parse the msg data
 parse_data(?PING, <<>>) ->
     none;
-parse_data(?PING, <<Key:160/bytes>>) ->
+parse_data(?PING_FIRST, <<Key:160/bytes>>) ->
     Key;
 parse_data(?STORE, <<Key:160/bytes, Data/bytes>>) ->
     {Key, Data};

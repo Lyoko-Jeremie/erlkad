@@ -7,6 +7,7 @@
 -include("kad.hrl").
 
 -export([randid/0, id/1, idinc/1]).
+-export([byte_padding/1]).
 -export([log2/1]).
 -export([now_ms/0]).
 -export([id_to_integer/1, integer_to_id/2, distance/2]).
@@ -30,6 +31,10 @@ idinc(Id) when is_binary(Id) ->
     N = id_to_integer(Id),
     N2 = N + 1,
     integer_to_id(N2, ?NODE_ID_LEN div 8).
+
+%% the padding bytes for msg
+byte_padding(Len) ->
+   binary_append(<<>>, Len,  0).
 
 %% @spec log2(integer()) -> integer()
 %% @doc return the 

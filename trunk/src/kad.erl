@@ -33,14 +33,14 @@ init({Addr, Port, Virtual}) ->
 	    IpTuple;
        is_tuple(Addr) ->
 	    Addr;
-       any ->
+       true ->
 	    {0,0,0,0}
     end,
     ?LOG("start supervisor init:~p~n", [{ParsedIp, Port, Virtual}]),
     Stragegy = {one_for_one, 10, 10},
     Node = {kad_node, {kad_node, start_link, [ParsedIp, Port, Virtual]},
 	    transient, 1000, worker, [kad_node]},
-    Net = {kad_net, {kad_net, start_link, [[{ip, ParsedIp}, {port, Port}]]},
+    Net = {kad_net, {kad_net, start_link, [[binary, {ip, ParsedIp}, {port, Port}]]},
 	   transient, 1000, worker, [kad_net]},
     Rpc = {kad_rpc_mgr, {kad_rpc_mgr, start_link, []},
 	   transient, 1000, worker, [kad_rpc_mgr]},

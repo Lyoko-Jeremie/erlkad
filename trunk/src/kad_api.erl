@@ -51,7 +51,7 @@ ping_first(Addr, Port, Sync, Timeout) ->
 	    end; 
 	false  ->
 	    MsgId = kad_rpc_mgr:msgid(),
-	    Msg = kad_protocol:gen_msg(?PING_FIRST, dummy, MsgId, dummy),
+	    Msg = kad_protocol:gen_msg(?PING_FIRST, kad_util:byte_padding(?NODE_ID_BYTES), MsgId, dummy),
 	    case send_msg(Addr, Port, KRef, MsgId, Msg) of
 		ok ->
 		    if Sync ->
