@@ -58,7 +58,7 @@ init(Opts) ->
     ?LOG("kad open udp port:~p~n", [Port]),
     case gen_udp:open(Port, UdpOpts) of
         {ok, Socket} ->
-            Pid = proc_lib:spawn_link(?MODULE, kad_net_loop, Socket),
+            Pid = proc_lib:spawn_link(?MODULE, kad_net_loop, [Socket]),
             State = #state{socket = Socket, pid = Pid},
 	    {ok, State};
 	{error, Reason} ->
@@ -108,8 +108,8 @@ kad_net_loop(Socket) ->
 
 %% parse the options
 parse_opt(Opts) ->
-    Port = proplist:get_value(port, Opts, ?KAD_PORT),
-    UdpOpts = proplist:delete(port, Opts),
+    Port = proplists:get_value(port, Opts, ?KAD_PORT),
+    UdpOpts = proplists:delete(port, Opts),
     %% specify the {active, false} option
     UdpOpts2 = 
     case proplists:get_value(active, UdpOpts) of
@@ -117,7 +117,7 @@ parse_opt(Opts) ->
 	    proplists:expand([{active, {active, false}}], UdpOpts);
         false ->
 	    UdpOpts;    
-	undifined ->
+	undefined ->
 	    [{active, false} | UdpOpts]
     end,
     {Port, UdpOpts2}.

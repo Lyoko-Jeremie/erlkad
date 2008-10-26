@@ -22,17 +22,8 @@
 -define(SERVER, ?MODULE).
 
 start_link(Addr, Port, Virtual) ->
-    ?LOG("kad_node start! ~p ~n", [{Addr, Port, Virtual}]),
-    ParsedIp =
-    if is_list(Addr) ->
-	    {ok, IpTuple} = inet_parse:address(Addr),
-	    IpTuple;
-       is_tuple(Addr) ->
-	    Addr;
-       any ->
-	    {0,0,0,0}
-    end,
-    gen_server:start_link({local, ?SERVER}, ?MODULE, {ParsedIp, Port, Virtual}, []).
+    ?LOG("kad_node start! ~p ~n", [{Addr, Port, Virtual}]),   
+    gen_server:start_link({local, ?SERVER}, ?MODULE, {Addr, Port, Virtual}, []).
 
 %% @spec id() -> identify()
 %% @doc the self node id

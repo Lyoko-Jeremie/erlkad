@@ -27,11 +27,20 @@ stop(_Args) ->
 
 %% supervisor callbacks
 init({Addr, Port, Virtual}) ->
-    ?LOG("start supervisor init:~p~n", [{Addr, Port, Virtual}]),
+    ParsedIp =
+    if is_list(Addr) ->
+	    {ok, IpTuple} = inet_parse:address(Addr),
+	    IpTuple;
+       is_tuple(Addr) ->
+	    Addr;
+       any ->
+	    {0,0,0,0}
+    end,
+    ?LOG("start supervisor init:~p~n", [{ParsedIp, Port, Virtual}]),
     Stragegy = {one_for_one, 10, 10},
-    Node = {kad_node, {kad_node, start_link, [Addr, Port, Virtual]},
+    Node = {kad_node, {kad_node, start_link, [ParsedIp, Port, Virtual]},
 	    transient, 1000, worker, [kad_node]},
-    Net = {kad_net, {kad_net, start_link, []},
+    Net = {kad_net, {kad_net, start_link, [[{ip, ParsedIp}, {port, Port}]]},
 	   transient, 1000, worker, [kad_net]},
     Rpc = {kad_rpc_mgr, {kad_rpc_mgr, start_link, []},
 	   transient, 1000, worker, [kad_rpc_mgr]},
@@ -41,7 +50,7 @@ init({Addr, Port, Virtual}) ->
 	     transient, 1000, worker, [kad_store]},
     {ok, {Stragegy, 
 	  %[Node, Net, Rpc, Routing, Store]
-	  [Node]
+	  [Node, Net]
 	 }}.
 %%
 %% internal API
