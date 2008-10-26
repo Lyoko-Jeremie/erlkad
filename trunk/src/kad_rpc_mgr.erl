@@ -76,7 +76,7 @@ dispatch(MsgId, Src, Cmd, Msg) ->
 %% gen_server callback
 %% 
 init(_Args) ->
-    est:new(?RPCTABLE, [set, private, named_table, {keypos, #item.id}]),
+    ets:new(?RPCTABLE, [set, private, named_table, {keypos, #item.id}]),
     State = #state{msgid = kad_util:randid()},
     {ok, State}.
 

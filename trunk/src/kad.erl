@@ -49,8 +49,7 @@ init({Addr, Port, Virtual}) ->
     Store = {kad_store, {kad_store, start_link, []}, 
 	     transient, 1000, worker, [kad_store]},
     {ok, {Stragegy, 
-	  %[Node, Net, Rpc, Routing, Store]
-	  [Node, Net]
+	  [Node, Net, Rpc, Routing, Store]
 	 }}.
 %%
 %% internal API
