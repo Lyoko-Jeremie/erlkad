@@ -144,7 +144,7 @@ do_update(Node = #kad_contact{id = Id}, Buckets) ->
 
 %% get the bucket
 get_bucket(Key, Buckets) ->
-    Dist = kad_self:distance(Key),
+    Dist = kad_node:distance(Key),
     Index = kad_util:log2(Dist),
     % get the bucket
     {Index, array:get(Index, Buckets)}.

@@ -31,6 +31,7 @@ start_link() ->
 %%   Option = {port, Port} 
 %% @see inet:setopts/2
 start_link(Opts) when is_list(Opts) ->
+    ?LOG("start kad_net :~p~n", [Opts]),
     gen_server:start_link({local, ?SERVER}, ?MODULE, Opts, []).
 
 %% @spec stop(term()) -> ok
@@ -55,9 +56,10 @@ send(Addr, Port, Msg) ->
 init(Opts) ->
     process_flag(trap_exit, true),
     {Port, UdpOpts} = parse_opt(Opts),
-    ?LOG("kad open udp port:~p~n", [Port]),
+    ?LOG("kad open udp port:~p Opt:~p~n", [Port, UdpOpts]),
     case gen_udp:open(Port, UdpOpts) of
         {ok, Socket} ->
+	    ?LOG("kad_net open port success~n"),
             Pid = proc_lib:spawn_link(?MODULE, kad_net_loop, [Socket]),
             State = #state{socket = Socket, pid = Pid},
 	    {ok, State};
@@ -65,6 +67,8 @@ init(Opts) ->
 	    {stop, Reason}
     end.
 
+handle_call(socket, _From, State) ->
+    {reply, State#state.socket, State};
 handle_call(_Msg, _From, State) ->
     {noreply, State}.
 
