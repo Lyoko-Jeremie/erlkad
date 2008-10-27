@@ -14,7 +14,7 @@
 dispatch(Addr, Port, Packet) when is_binary(Packet) ->
     Self = kad_node:id(),
     case kad_protocol:parse(Packet) of
-        {Cmd, Dest, Src, Id, Data} when Dest =:= Self ->
+        {Cmd, Dest, Src, Id, Data} when Dest =/= Self ->
 	    case kad_protocol:optype(Cmd) of
 		?OP_REQ ->
 		    %% it's request
@@ -40,8 +40,6 @@ dispatch(Addr, Port, Packet) when is_binary(Packet) ->
 			    {error, noproc}
 		    end
 	    end;
-	    
-
 	ignore -> 
 	    ?LOG("msg parse error ignore:~p~n", [Packet]),
 	    ok;
@@ -63,7 +61,7 @@ may_update_bucket(_Cmd, _Id, _Addr, _Port) ->
 
 %% reply the request, spawn new process
 reply(Addr, Port, Dest, Id, Cmd, Msg) ->
-    prob_lib:spawn(fun() ->	 
+    proc_lib:spawn(fun() ->	 
 		       case do_reply(Dest, Id, Cmd, Msg) of
 			   {ok, Rsp} ->
 			       kad_net:send(Addr, Port, Rsp);
@@ -76,29 +74,31 @@ reply(Addr, Port, Dest, Id, Cmd, Msg) ->
 
 %% do the reply
 do_reply(Dest, Id, ?PING, _Msg) ->
-    kad_protocol:gen_rsp(?PING_RSP, Dest, Id, dummy);
+    kad_protocol:gen_msg(?PING_RSP, Dest, Id, dummy);
+do_reply(Dest, Id, ?PING_FIRST, _Msg) ->
+    kad_protocol:gen_msg(?PING_FIRST_RSP, Dest, Id, kad_node:id());
 do_reply(Dest, Id, ?FIND_NODE, Node) ->
     {N, Closest} = kad_rotining:closest(Node, ?K),
     ?LOG("response ~p closest nodes to ~p:~p\n", [N, Dest, Closest]),
-    kad_protocol:gen_rsp(?FIND_NODE_RSP, Dest, Id, Closest);
+    kad_protocol:gen_msg(?FIND_NODE_RSP, Dest, Id, Closest);
 do_reply(Dest, Id, ?FIND_VALUE, Key) ->
     % if the key exist in local store
     case kad_store:lookup(Key) of
 	{value, Value} ->
     	    ?LOG("response ~p FIND_VALUE msg. [key:~p data:~p]\n", [Dest, Key, Value]),
-	    kad_protocol:gen_rsp(?FIND_VALUE_RSP, Value);
+	    kad_protocol:gen_msg(?FIND_VALUE_RSP, Value);
 	none ->
 	    do_reply(Dest, Id, ?FIND_NODE, Key)
     end;
 do_reply(Dest, Id, ?STORE, {Key, Data}) ->
     case kad_store:store(Key, Data) of
 	ok ->
-	    kad_protocol:gen_rsp(?STORE_RSP, Dest, Id, ?E_SUCCESS);
+	    kad_protocol:gen_msg(?STORE_RSP, Dest, Id, ?E_SUCCESS);
 	{error, _Reason} ->
-	    kad_protocol:gen_rsp(?STORE_RSP, Dest, Id, ?E_FAILED)
+	    kad_protocol:gen_msg(?STORE_RSP, Dest, Id, ?E_FAILED)
     end;
 do_reply(Dest, Id, ?DELETE, _Key) ->
-   kad_protocol:gen_rsp(?DELETE, Dest, Id, ?E_NOTIMPL).
+   kad_protocol:gen_msg(?DELETE, Dest, Id, ?E_NOTIMPL).
 
 
 %% send ack
