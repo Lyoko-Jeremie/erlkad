@@ -139,7 +139,7 @@ code_change(_Old, State, _Extra) ->
 %% update the buckets
 do_update(Node = #kad_contact{id = Id}, Buckets) ->   
     % get the bucket
-    Bucket = get_bucket(Id, Buckets),
+    {_Index, Bucket} = get_bucket(Id, Buckets),
     update_bucket(Node, Bucket).
 
 %% get the bucket
@@ -204,7 +204,7 @@ update_bucket(Node = #kad_contact{id = Id}, Bucket) ->
 	    Bucket2 = lists:keydelete(Id, #kad_contact.id, Bucket),
 	    lists:append(Bucket2, [Node]);
 	false -> % not exist in bucket
-	    Len = lists:length(Bucket),
+	    Len = length(Bucket),
 	    if Len < ?KK -> % the bucket is not full
 		 Bucket ++ [Node];
 	       true -> % the bucket is full
