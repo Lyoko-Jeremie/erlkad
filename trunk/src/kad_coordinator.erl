@@ -61,16 +61,16 @@ may_update_bucket(_Cmd, _Id, _Addr, _Port) ->
 
 %% reply the request, spawn new process
 reply(Addr, Port, Dest, Id, Cmd, Msg) ->
-    proc_lib:spawn(fun() ->	 
-		       case do_reply(Dest, Id, Cmd, Msg) of
-			   {ok, Rsp} ->
-			       kad_net:send(Addr, Port, Rsp);
-			   _ ->
-			       ?LOG("the request msg is ingore[~p:~p]\n", [?MODULE, ?LINE]),
-			       exit(normal)
-		       end
-		       
-		   end).
+    proc_lib:spawn(
+      fun() ->	 
+	      case do_reply(Dest, Id, Cmd, Msg) of
+		  {error, _} ->
+		      ?LOG("the request msg is ingore[~p:~p]\n", [?MODULE, ?LINE]),
+		      exit(normal);
+		  Rsp ->
+		      kad_net:send(Addr, Port, Rsp)
+	      end
+      end).
 
 %% do the reply
 do_reply(Dest, Id, ?PING, _Msg) ->
@@ -98,7 +98,9 @@ do_reply(Dest, Id, ?STORE, {Key, Data}) ->
 	    kad_protocol:gen_msg(?STORE_RSP, Dest, Id, ?E_FAILED)
     end;
 do_reply(Dest, Id, ?DELETE, _Key) ->
-   kad_protocol:gen_msg(?DELETE, Dest, Id, ?E_NOTIMPL).
+    kad_protocol:gen_msg(?DELETE, Dest, Id, ?E_NOTIMPL);
+do_reply(_, _, _, _) ->
+    {error, unknown_msg}.
 
 
 %% send ack
