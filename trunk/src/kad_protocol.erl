@@ -153,3 +153,32 @@ gen_nodes([{{D1, D2, D3, D4}, Port, Id} | Rest], Acc) ->
     gen_nodes(Rest, [Entry | Acc]);
 gen_nodes([], Acc) ->
     list_to_binary(Acc).
+
+
+%% unit test
+-ifdef(Debug)
+
+gen_msg2(Cmd, D, S, Id, Data) ->
+		Header = <<Cmd, D/binary, S/binary, Id/binary>>,
+    gen_msg(Cmd, Header, Args).    
+    
+proto_test_() ->
+	D = <<0:160/bits>>,
+	S = <<16#fffffffff:160/bits>>
+	Id = <<16#ddddddddddd:160/bits>>,	
+	F = fun(Cmd, D, S, Id, Data, Msg) ->
+				case parse(Msg) of
+					ingore ->
+						io:format("test cmd:~p error~n", [Cmd]);
+					Data ->
+	    			{Cmd, D, S, Id, Data2};
+	    		_ ->
+	    			io:format("test cmd:~p error~n", [Cmd])
+	    	end
+	    end,
+	[F(Cmd, D, S, Id, dummy, gen_msg2(Cmd, D, S, Id, dummy)) 
+		|| Cmd <- [?PING, ?PING_FIRST, ?STORE, ?FIND_NODE, ?FIND_VALUE, ?DELETE,
+							?PING_RSP, ?PING_FIRST_RSP, ?STORE_RSP, ?FIND_NODE_RSP, ?FIND_VALUE_RSP, 
+							?DELETE_RSP, ?PING_PIGGY_RSP, ?PING_FIRST_ACK]].
+
+-endif
