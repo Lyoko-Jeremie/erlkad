@@ -30,8 +30,7 @@
 -define(FIND_NODE_RSP, 104).
 -define(FIND_VALUE_RSP, 105).
 -define(DELETE_RSP, 106).
--define(PING_PIGGY_RSP, 107).
--define(PING_FIRST_ACK, 108).
+-define(PING_FIRST_ACK, 107).
 
 
 %% Cmd op type

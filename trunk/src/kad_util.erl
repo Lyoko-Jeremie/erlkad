@@ -45,7 +45,7 @@ log2(X) when is_integer(X) ->
 
 log2(0, Acc) -> Acc;
 log2(X, Acc) ->
-    log2(X bsr 2, Acc + 1).
+    log2(X bsr 1, Acc + 1).
 
 
 %% @doc return the now in ms unit
@@ -128,3 +128,38 @@ cancel_timer({timer, infinity}) ->
 cancel_timer(Timer) when is_reference(Timer) ->
     erlang:cancel_timer(Timer).
 
+
+-ifdef(debug).
+%% unit test
+id_test_() ->
+    Id = randid(),
+    [    
+     ?_assert(20 =:= byte_size(Id)),
+     ?_assert(integer_to_id(id_to_integer(Id), 20) =:= Id),
+     ?_assert(idinc(Id) == integer_to_id(id_to_integer(Id) + 1, 20)),
+     ?_assert(distance(Id, Id) =:= 0)	 
+    ].
+
+log2_test_() ->
+    [
+     log2(2#10101110101010110) =:= 17     
+    ].
+
+takewhile_test_() ->
+    L = [1, 20, 33, a, 23, 34, 332, a, b, 233],
+    FTo100 = fun(E, Acc) when is_atom(E) ->
+		     false;
+		(E, Acc) when is_integer(E) ->
+		     Acc2 = Acc + E,
+		     if Acc2 >= 100 ->
+			     break;
+			true ->
+			     {true, Acc2}
+		     end
+	     end,
+
+    [
+     ?_assert(takewhile(FTo100, 0, L) =:= [1, 20, 33, 23, 34])
+    ].
+    
+-endif.
