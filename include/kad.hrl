@@ -2,6 +2,10 @@
 %%% @copyright 2008 toquick.com.
 %%% @doc the kademlia header file
 
+-ifdef(debug).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 %% version
 -define(Version, "0.1").
 %% kad network version
