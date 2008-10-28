@@ -142,7 +142,7 @@ parse_nodes(<<D1, D2, D3, D4, Port:2, Node:160/bits, Rest/bytes>>, Acc) ->
     Entry = #kad_contact{id = Node, ip = {D1, D2, D3, D4}, port = Port},
     parse_nodes(Rest, [Entry | Acc]);
 parse_nodes(<<>>, Acc) ->
-    Acc.
+    lists:reverse(Acc).
 
 
 gen_nodes(Nodes) when is_list(Nodes) ->
@@ -155,30 +155,35 @@ gen_nodes([], Acc) ->
     list_to_binary(Acc).
 
 
+-ifdef(debug).
 %% unit test
--ifdef(Debug)
-
 gen_msg2(Cmd, D, S, Id, Data) ->
-		Header = <<Cmd, D/binary, S/binary, Id/binary>>,
+    Header = <<Cmd, D/binary, S/binary, Id/binary>>,
     gen_msg(Cmd, Header, Args).    
     
 proto_test_() ->
-	D = <<0:160/bits>>,
-	S = <<16#fffffffff:160/bits>>
-	Id = <<16#ddddddddddd:160/bits>>,	
-	F = fun(Cmd, D, S, Id, Data, Msg) ->
-				case parse(Msg) of
-					ingore ->
-						io:format("test cmd:~p error~n", [Cmd]);
-					Data ->
-	    			{Cmd, D, S, Id, Data2};
-	    		_ ->
-	    			io:format("test cmd:~p error~n", [Cmd])
-	    	end
-	    end,
-	[F(Cmd, D, S, Id, dummy, gen_msg2(Cmd, D, S, Id, dummy)) 
-		|| Cmd <- [?PING, ?PING_FIRST, ?STORE, ?FIND_NODE, ?FIND_VALUE, ?DELETE,
-							?PING_RSP, ?PING_FIRST_RSP, ?STORE_RSP, ?FIND_NODE_RSP, ?FIND_VALUE_RSP, 
-							?DELETE_RSP, ?PING_PIGGY_RSP, ?PING_FIRST_ACK]].
+    D = <<0:160/bits>>,
+    S = <<16#fffffffff:160/bits>>,
+    Id = <<16#ddddddddddd:160/bits>>,	
+    Key = <<16#134132132304da83313de333234324:160/bits>>,
+    Data = <<12, 34, 23, 34, 32, 1, 34, 32, 81, 112>>,
+    NodeList1 = [{{127,0,0,1}, 2100, Id}, {{192, 168, 1, 1}, 2112, Id}],
+    NodeLIst2 = [],
+    [
+     ?_assert(parse(gen_msg2(?PING, D, S, Id, dummy)) =:= {?PING, D, S, Id, dummy}),
+     ?_assert(parse(gen_msg2(?PING_FIRST, D, S, Id, dummy)) =:= {?PING_FIRST, D, S, Id, dummy}),
+     ?_assert(parse(gen_msg2(?STORE, D, S, Id, {Key, Data})) =:= {?STORE, D, S, Id, {Key, Data}}),
+     ?_assert(parse(gen_msg2(?FIND_NODE, D, S, Id, Key)) =:= {?FIND_NODE, D, S, Id, Key}),
+     ?_assert(parse(gen_msg2(?PING_VALUE, D, S, Id, Key)) =:= {?FIND_VALUE, D, S, Id, Key}),
+     ?_assert(parse(gen_msg2(?DELETE, D, S, Id, Key)) =:= {?DELETE, D, S, Id, Key}),
 
--endif
+     ?_assert(parse(gen_msg2(?PING_RSP, D, S, Id, dummy)) =:= {?PING_RSP, D, S, Id, dummy}),
+     ?_assert(parse(gen_msg2(?PING_FIRST_RSP, D, S, Id, Key)) =:= {?PING_FIRST_RSP, D, S, Id, Key}),
+     ?_assert(parse(gen_msg2(?STORE_RSP, D, S, Id, 1)) =:= {?STORE, D, S, Id, 1}),
+     ?_assert(parse(gen_msg2(?FIND_NODE_RSP, D, S, Id, NodeList1)) =:= {?FIND_NODE_RSP, D, S, Id, NodeList1}),
+     ?_assert(parse(gen_msg2(?FIND_NODE_RSP, D, S, Id, NodeList2)) =:= {?FIND_NODE_RSP, D, S, Id, NodeList2}),
+     ?_assert(parse(gen_msg2(?PING_VALUE_RSP, D, S, Id, Data)) =:= {?FIND_VALUE, D, S, Id, Data}),
+     ?_assert(parse(gen_msg2(?PING_FIRST_ACK, D, S, Id, Key)) =:= {?PING_FIRST_ACK, D, S, Id, Key})
+    ].
+
+-endif.
