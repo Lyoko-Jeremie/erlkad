@@ -1,7 +1,6 @@
 %%% @author litao cheng <litaocheng@gmail.com>
 %%% @copyright 2008 toquick.com.
 %%% @doc the kademlia header file
-
 -ifdef(debug).
 -include_lib("eunit/include/eunit.hrl").
 -endif.

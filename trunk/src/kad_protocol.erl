@@ -159,22 +159,22 @@ gen_nodes([], Acc) ->
 %% unit test
 gen_msg2(Cmd, D, S, Id, Data) ->
     Header = <<Cmd, D/binary, S/binary, Id/binary>>,
-    gen_msg(Cmd, Header, Args).    
+    gen_msg(Cmd, Header, Data).    
     
 proto_test_() ->
-    D = <<0:160/bits>>,
-    S = <<16#fffffffff:160/bits>>,
-    Id = <<16#ddddddddddd:160/bits>>,	
-    Key = <<16#134132132304da83313de333234324:160/bits>>,
+    D = <<0:160>>,
+    S = <<16#fffffffff:160>>,
+    Id = <<16#ddddddddddd:160>>,	
+    Key = <<16#134132132304da83313de333234324:160>>,
     Data = <<12, 34, 23, 34, 32, 1, 34, 32, 81, 112>>,
     NodeList1 = [{{127,0,0,1}, 2100, Id}, {{192, 168, 1, 1}, 2112, Id}],
-    NodeLIst2 = [],
+    NodeList2 = [],
     [
      ?_assert(parse(gen_msg2(?PING, D, S, Id, dummy)) =:= {?PING, D, S, Id, dummy}),
      ?_assert(parse(gen_msg2(?PING_FIRST, D, S, Id, dummy)) =:= {?PING_FIRST, D, S, Id, dummy}),
      ?_assert(parse(gen_msg2(?STORE, D, S, Id, {Key, Data})) =:= {?STORE, D, S, Id, {Key, Data}}),
      ?_assert(parse(gen_msg2(?FIND_NODE, D, S, Id, Key)) =:= {?FIND_NODE, D, S, Id, Key}),
-     ?_assert(parse(gen_msg2(?PING_VALUE, D, S, Id, Key)) =:= {?FIND_VALUE, D, S, Id, Key}),
+     ?_assert(parse(gen_msg2(?FIND_VALUE, D, S, Id, Key)) =:= {?FIND_VALUE, D, S, Id, Key}),
      ?_assert(parse(gen_msg2(?DELETE, D, S, Id, Key)) =:= {?DELETE, D, S, Id, Key}),
 
      ?_assert(parse(gen_msg2(?PING_RSP, D, S, Id, dummy)) =:= {?PING_RSP, D, S, Id, dummy}),
@@ -182,7 +182,7 @@ proto_test_() ->
      ?_assert(parse(gen_msg2(?STORE_RSP, D, S, Id, 1)) =:= {?STORE, D, S, Id, 1}),
      ?_assert(parse(gen_msg2(?FIND_NODE_RSP, D, S, Id, NodeList1)) =:= {?FIND_NODE_RSP, D, S, Id, NodeList1}),
      ?_assert(parse(gen_msg2(?FIND_NODE_RSP, D, S, Id, NodeList2)) =:= {?FIND_NODE_RSP, D, S, Id, NodeList2}),
-     ?_assert(parse(gen_msg2(?PING_VALUE_RSP, D, S, Id, Data)) =:= {?FIND_VALUE, D, S, Id, Data}),
+     ?_assert(parse(gen_msg2(?FIND_VALUE_RSP, D, S, Id, Data)) =:= {?FIND_VALUE, D, S, Id, Data}),
      ?_assert(parse(gen_msg2(?PING_FIRST_ACK, D, S, Id, Key)) =:= {?PING_FIRST_ACK, D, S, Id, Key})
     ].
 

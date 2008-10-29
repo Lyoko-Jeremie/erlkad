@@ -142,12 +142,12 @@ id_test_() ->
 
 log2_test_() ->
     [
-     log2(2#10101110101010110) =:= 17     
+     ?_assert(log2(2#10101110101010110) =:= 17)
     ].
 
 takewhile_test_() ->
     L = [1, 20, 33, a, 23, 34, 332, a, b, 233],
-    FTo100 = fun(E, Acc) when is_atom(E) ->
+    FTo100 = fun(E, _Acc) when is_atom(E) ->
 		     false;
 		(E, Acc) when is_integer(E) ->
 		     Acc2 = Acc + E,
