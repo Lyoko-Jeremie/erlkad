@@ -7,37 +7,45 @@
 -include("kad.hrl").
 
 -export([randid/0, id/1, idinc/1]).
--export([byte_padding/1]).
+-export([byte_padding/1, binary_append/3]).
 -export([log2/1]).
 -export([now_ms/0]).
 -export([id_to_integer/1, integer_to_id/2, distance/2]).
 -export([takewhile/3]).
 -export([start_timer/3, cancel_timer/1]).
 
-%% @spec randid() -> binary()
+
 %% @doc gen the random 160-bytes identify
+-spec(randid/0 :: () -> id()).
 randid() ->
     {A1, A2, A3} = erlang:now(),
     crypto:sha(<<A1:4, A2:4, A3:4>>).
 
-%% @spec id(binary()) -> binary()
 %% @doc gen the identify 
+-spec(id/1 :: ( Data :: binary()) -> id()).
 id(Data) when is_binary(Data) ->
     crypto:sha(Data).
 
-%% @spec idinc(identify()) -> identify()
 %% @doc return the indentify increase one
+-spec(idinc/1 :: ( Id :: id() ) -> id()).
 idinc(Id) when is_binary(Id) ->
     N = id_to_integer(Id),
     N2 = N + 1,
     integer_to_id(N2, ?NODE_ID_LEN div 8).
 
 %% the padding bytes for msg
+-spec(byte_padding/1 :: ( Len :: integer() ) -> binary()).
 byte_padding(Len) ->
    binary_append(<<>>, Len,  0).
+   
+-spec(binary_append/3 :: (Bin :: binary(), N :: pos_integer(), V :: byte() ) -> binary()).
+binary_append(Bin, 0, _V) ->
+    Bin;
+binary_append(Bin, N, V) ->
+    binary_append(<<Bin/binary, V>>, N-1, V).
 
-%% @spec log2(integer()) -> integer()
 %% @doc return the 
+-spec(log2/1 :: ( X :: pos_integer() ) -> pos_integer()).
 log2(X) when is_float(X) ->
     log2(trunc(X));
 log2(X) when is_integer(X) ->
@@ -49,12 +57,13 @@ log2(X, Acc) ->
 
 
 %% @doc return the now in ms unit
+-spec(now_ms/0 :: () -> pos_integer()).
 now_ms() ->
     {A, B, C} = now(),
     (A * 1000000 + B + C / 1000000) * 1000.
 
-%% @spec id_to_integer(identify()) -> integer()
 %% @doc convert id to integer, the first byte in binary is the low endian
+-spec(id_to_integer/1 :: ( X :: id() ) -> pos_integer()).
 id_to_integer(X) ->
     id_to_integer(X, 1, 0).
 
@@ -65,8 +74,8 @@ id_to_integer(<<C, Rest/binary>>, M, Acc) ->
 id_to_integer(<<>>, _M, Acc) ->
     Acc.
 
-%% @spec integer_to_id(integer(), integer()) -> identify()
 %% @doc convert integer to id
+-spec(integer_to_id/2 :: ( N :: pos_integer(), Len :: pos_integer() ) -> binary()).
 integer_to_id(N, Len) when is_integer(N) ->
     Bin = integer_to_id(N),
     L = byte_size(Bin),
@@ -81,15 +90,8 @@ integer_to_id(0) ->
 integer_to_id(N) ->
     <<(N band 16#ff), (integer_to_id(N bsr 8))/binary>>.
 
-
-binary_append(Bin, 0, _V) ->
-    Bin;
-binary_append(Bin, N, V) ->
-    binary_append(<<Bin/binary, V>>, N-1, V).
-    
-
-%% @spec distance(identify(), identify()) -> identify()
 %% @doc return the distance based XOR operation
+-spec(distance/2 :: (X :: id(), Y :: id()) -> id()).
 distance(X, Y) when is_binary(X) andalso is_binary(Y) ->
     X1 = id_to_integer(X),
     Y1 = id_to_integer(Y),
@@ -97,9 +99,11 @@ distance(X, Y) when is_binary(X) andalso is_binary(Y) ->
 distance(X, Y) when is_integer(X) andalso is_integer(Y) ->
      X bxor Y.
 
-%% @spec takewhile(fun(), term(), list()) -> list()
 %% @doc take elements from List, where Pred(Element) return {true, Acc},
 %%  the function stop when Pred(Element) return break
+-spec(takewhile/3 :: (Pred :: fun((E :: any(), Acc:: any()) -> {'true', any()} | 'break' | 'false'),
+											Acc :: any(),
+											List :: list()) -> list()). 
 takewhile(Pred, Acc, List) when is_function(Pred, 2) andalso is_list(List) ->
 	takewhile1(Pred, Acc, List, []).
 
@@ -117,6 +121,8 @@ takewhile1(Pred, Acc, [H | T], AccL) ->
 
 
 %% @doc start the timer, the Timer can be either integer(in ms unit) or infinity
+%-spec(start_timer/3 :: ('infinity', Dest :: pid(), Msg :: any()) -> {'timer', 'infinity'})
+%										  ;(Time :: 0...16#ffffffff, Dest :: pid(), Msg :: any()) -> ref()).
 start_timer(infinity, Dest, _Msg) when is_pid(Dest) orelse is_atom(Dest) ->
     {timer, infinity};
 start_timer(Time, Dest, Msg) when is_pid(Dest) orelse is_atom(Dest) ->
