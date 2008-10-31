@@ -18,14 +18,15 @@
 	  size = 0,   % the element count
 	  list = []   % store the search list
 	 }).			
+-type searchlist() :: #searchlist{}.
 
-%% @spec new(identify()) -> searchlist()
 %% @doc return a new search list, the arg is the search target
+-spec new(Tar :: id()) -> searchlist().
 new(Tar) ->
     #searchlist{target = Tar}.
 
-%% @spec add(kad_contact(), SearchList) -> SearchList2
 %% @doc add a contact to search list
+-spec add(node(), State :: searchlist()) -> searchlist().
 add(#kad_contact{} = Node, State) ->
     D = kad_node:distance(Node, State#searchlist.target),
     List = [#item{dist = D, node = Node} | State#searchlist.list],
@@ -33,9 +34,9 @@ add(#kad_contact{} = Node, State) ->
     Size = State#searchlist.size + 1,
     State#searchlist{size = Size, list = SortL}.
 
-%% @spec is_closer(identify(), SearchList) -> bool()
 %% @doc  return ture if the Id is closer than the closest node in list,
 %%       otherwise return false
+-spec is_closer(Id :: id(), State :: searchlist()) -> bool().
 is_closer(Id, State) when is_binary(Id) ->
     case State#searchlist.list of
 	[Closest | _] ->
@@ -45,9 +46,9 @@ is_closer(Id, State) when is_binary(Id) ->
 	    true
     end.	
 
-%% @spec closest(integer(), bool(), SearchList) -> list()
 %% @doc return N closet Nodes in searchlist, Used specify if the node
 %%		must be unused
+-spec closest(N :: pos_integer(), bool(), State :: searchlist()) -> list().
 closest(N, false, State) ->
 	lists:sublist(State#searchlist.list, N);
 closest(N, true, State) ->
@@ -61,7 +62,7 @@ closest(N, true, State) ->
 	end,
     kad_util:takewhile(F, 0, State#searchlist.list).
 
-
+-spec to_list(State :: searchlist()) -> list().
 to_list(State) ->
     State#searchlist.list.
 %% 

@@ -16,6 +16,7 @@
 -export([wait_rsp/3, wait_rsp_iter/5]).
 
 %% @doc bootstrap the kad
+-spec bootstrap({ip_address(), ip_port()}) -> 'ok' | {'error', any()}.
 bootstrap({Addr, Port}) ->
     case kad_api:ping_first(Addr, Port, true) of
 	{value, _Id} ->
@@ -25,17 +26,23 @@ bootstrap({Addr, Port}) ->
 	    % pint the gateway error
 	    ?LOG("bootstrap ping the gateway error:~p\n", [Reason]),
 	    {error, Reason}
-    end;		
-			
+    end;
+
 bootstrap([_|_] = Gs) ->
     [bootstrap(E) || E <- Gs].
 
-%% @spec ping_first(ip_address(), integer(), bool()) -> {value, Id} | {error, Reason} | {ok, KRef}
+
 %% @doc first time ping the node, now we don't know the node's id
 %%      the receipt return the self id. if the Sync is false, the {ok, KRef} will return,
 %%      the send process will receive the msg {KRef, Cmd, Msg}
 ping_first(Addr, Port, Sync) ->
     ping_first(Addr, Port, Sync, infinity).
+	
+-spec ping_first(Addr :: ip_address(), 
+		Port :: ip_port(),
+		Sync :: bool(),
+		Timeout :: timeout() ) 
+		-> {'value', id()} | {'error', any()} | {'ok', ref()}.
 ping_first(Addr, Port, Sync, Timeout) ->
     ?LOG("first ping the node:~p:~p\n", [Addr, Port]),
     IsSelf = is_self({Addr, Port}),
@@ -64,10 +71,16 @@ ping_first(Addr, Port, Sync, Timeout) ->
 	    end
     end.
 
-%% @spec ping(identify(), ip_address(), integer(), bool()) -> {value, Rsp} | {error, Reason} | {ok, KRef}
 %% @doc ping the Node, check if it's online
 ping(Node, Addr, Port, Sync) ->
     ping(Node, Addr, Port, Sync, infinity).
+-spec ping(Node ::id(), 
+			Addr :: ip_address(), 
+			Port :: ip_port(),
+			Sync :: bool(),
+			Timeout :: timeout()) 
+			-> 
+			{'value', id()} | {'error', any()} | {'ok', ref()}.
 ping(Node, Addr, Port, Sync, Timeout) when is_binary(Node)  ->
     ?LOG("ping the node:~p ~p:~p~n", [Node, Addr, Port]),
     IsSelf = is_self(Node),
@@ -106,6 +119,11 @@ find_node(Id) when is_binary(Id) ->
     find_node(Id, infinity). 
 find_node(Id, Timeout) ->
     find_node(Id, Timeout, true, false).
+-spec find_node(Id :: id(),
+	Timeout :: timeout()',
+	Sync :: bool(),
+	Discard :: bool()) ->
+	{'value', id()} | {'error', any()} | {'ok', ref()}.
 find_node(Id, Timeout, Sync, Discard) ->
     ?LOG("find_node start:~p~n", [Id]),
     %get alpha closest nodes
@@ -151,16 +169,31 @@ find_node(Id, Timeout, Sync, Discard) ->
 %% find the value corresponding the key
 find_value(Key, 1, Sync) ->
     find_value(Key, 1, Sync, infinity).
+
+-spec find_value(Key :: id(),
+	pos_integer(),
+	_Sync :: bool(),
+	_Timeout :: bool()) ->
+	{'value', id()} | {'error', any()} | {'ok', ref()}.
 find_value(Key, 1, _Sync, _Timeout) when is_binary(Key) ->
     ?LOG("find_value start:~p~n", [Key]),    
     ok.    	
 
 %% @spec store(ip_address(), integer(), identify(), key(), binary()) -> ok | {error, Reason}
 %% @doc store the key-value pair in kad network
+-spec find_value(_Addr :: ip_address(),
+	_Port :: ip_port(),
+	Node :: id(),
+	{key(), data()},
+	_Sync :: bool(),
+	) ->
+	{'value', id()} | {'error', any()} | {'ok', ref()}.
 store(_Addr, _Port, Node, {Key, Data}, _Sync) when is_binary(Key) andalso is_binary(Data) ->
     ?LOG("store the key-value:~p to:~p\n", [{Key, Data}, Node]),
     ok.
 
+-spec delete(_Key :: key(),
+	_Sync :: bool()) -> 'ok' | {'error', any()}.
 delete(_Key, _Sync) ->
     ok.
 

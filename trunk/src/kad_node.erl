@@ -15,8 +15,8 @@
                             terminate/2, code_change/3]).
 
 -record(state, {
-	  node,
-	  virtual % virtual node id
+	  node :: #kad_contact{},
+	  virtual :: pos_integer() % virtual node id
 	 }).
 	  
 -define(SERVER, ?MODULE).
@@ -25,39 +25,39 @@ start_link(Addr, Port, Virtual) ->
     ?LOG("kad_node start! ~p ~n", [{Addr, Port, Virtual}]),   
     gen_server:start_link({local, ?SERVER}, ?MODULE, {Addr, Port, Virtual}, []).
 
-%% @spec id() -> identify()
 %% @doc the self node id
+-spec id() -> id().
 id() ->
     gen_server:call(?SERVER, {get, id}).
 
 
-%% @spec address() -> {ip_address(), integer()}
 %% @doc return the ip and port tuple
+-spec address() -> {ip_address(), ip_port()}.
 address() ->
     gen_server:call(?SERVER, {get, address}).
 
-%% @spec contact() -> identify()
 %% @doc the self node contact info
+-spec contact() -> contact().
 contact() ->
     gen_server:call(?SERVER, {get, contact}).
 
-%% @spec virtual() -> integer()
 %% @doc return the self virtual id
+-spec virtual() -> pos_integer().
 virtual() ->
     gen_server:call(?SERVER, {get, virtual}).
 
-%% @spec distance(identify()) -> identify()
 %% @doc return the distance between X and self( based XOR)
+-spec distance(X :: id()) -> id().
 distance(X) ->
     distance(id(), X).
 
-%% @spec distance(identfiy(), identify()) -> identify()
 %% @doc return the distance between X and Y
+-spec distance(X :: id(), Y :: id()) -> id().
 distance(X, Y) ->
     kad_util:distance(X, Y).
 
-%% @spec new_node(identify(), ip_address(), integer()) -> kad_contact()
 %% @doc return new node
+-spec new_node(Id :: id(), Addr :: ip_address(), Port :: ip_port()) -> contact().
 new_node(Id, Addr, Port) ->
     #kad_contact{id = Id, ip = Addr, port = Port}.
 

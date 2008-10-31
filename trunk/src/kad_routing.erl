@@ -24,7 +24,6 @@
 
 -define(SERVER, ?MODULE).
 
-%% @spec start_link() -> ServerRet
 %% @doc start the bucket
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
@@ -33,36 +32,36 @@ start_link() ->
 stop(Reason) ->
     gen_server:cast(?SERVER, {stop, Reason}).
 
-%% @spec size() -> integer()
 %% @doc return the contacts in buckets
+-spec size() -> non_neg_integer().
 size() ->
     gen_server:call(?SERVER, size).
 
-%% @spec global_size() -> integer()
 %% @doc return the estimate global nodes count
+-spec global_size() -> non_neg_integer().
 global_size() ->
     gen_server:call(?SERVER, global_size).
 
-%% @spec update(identify()) -> ok
 %% @doc update the k-bucket
+-spec update(Node :: id()) -> 'ok'.
 update(Node) ->
     gen_server:cast(?SERVER, {update, Node}).
 
-%% @spec closest(indentify(), integer()) -> list()
 %% @doc return the N closest nodes to Node
+-spec closest(Node :: id(), N :: pos_integer()) -> list().
 closest(Node, N) ->
     gen_server:call(?SERVER, {closest, Node, N}).
 
 all_nodes() ->
     gen_server:call(?SERVER, all_nodes).
 
-%% @spec random_nodes(integer(), integer()) -> [kad_contact()]
 %% @doc random select N nodes from the I bucket
+-spec random_nodes(I :: bucket_index(), N :: pos_integer()) -> [node()].
 random_nodes(I, N) ->
     gen_server:call(?SERVER, {random, I, N}).
 
-%% @spec random_refresh_bucket() -> Ret
 %% @doc random select REFRESH_NODE_COUNT nodes in bucket to refresh
+-spec random_refresh_bucket() -> 'ok'.
 random_refresh_bucket() ->
     [
      case catch random_nodes(I, ?REFRESH_NODE_COUNT) of

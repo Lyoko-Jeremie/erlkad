@@ -5,6 +5,7 @@
 -author('litaocheng@gmail.com').
 -vsn('0.1').
 -include("kad.hrl").
+-include("kad_protocol.hrl").
 
 -behaviour(gen_server).
 -export([start_link/0]).
@@ -36,39 +37,37 @@
 -define(RPCTABLE, rpc_table).
 -define(SERVER, ?MODULE).
 
-%% @type msgdata() = #msgdata{}
-%% @type cmd() = integer()
-
+-type msgid() :: id().
+-type msgdata() :: #msgdata{}.
 
 %% @doc start the kad udp socket
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-%% @spec msgid() -> identify()
 %% @doc return the next msg id to use
+-spec msgid() -> msgid()
 msgid() ->
     gen_server:call(?SERVER, msgid).
 
-%% @spec msgdata() -> msgdata()
 %% @doc create msgdata 
+-spec msgdata() -> msgdata().
 msgdata() -> msgdata(self()).
 msgdata(Caller) ->
     #msgdata{pid = Caller, start_stamp = now()}.
 
-%% @spec add(reference(), identify(), msgdata()) -> Ret
 %% @doc add a msg invoke to rpc manager
+-spec add(KRef :: ref(), MsgId :: msgid(), MsgData :: msgdata()) -> 'ok'
 add(KRef, MsgId, MsgData) when is_reference(KRef) andalso is_binary(MsgId) ->
     gen_server:cast(?SERVER, {add, KRef, MsgId, MsgData}).
 
-
-%% @spec exist(identify()) -> bool()
 %% @doc return true if the msg exist in manager, otherwise return false
+-spec exist(MsgId :: msgid()) -> bool().
 exist(MsgId) ->
     gen_server:call(?SERVER, {exist, MsgId}).
 
 
-%% @spec dispatch(identify(), identify(), cmd(), binary()) -> ok
 %% @doc dispatch the msg
+-spec dispatch(MsgId :: msgid(), Src :: id(), Cmd :: cmd(), Msg :: binary()) -> 'ok'
 dispatch(MsgId, Src, Cmd, Msg) ->
     gen_server:cast(?SERVER, {dispatch, MsgId, Src, Cmd, Msg}).
 
