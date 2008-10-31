@@ -16,8 +16,8 @@
                             terminate/2, code_change/3]).
 
 -record(state, {
-            socket,     % the udp socket
-	    pid         % the udp process pid
+            socket :: socket(),     % the udp socket
+	    pid :: pid()        % the udp process pid
 	    }).
 
 -define(SERVER, ?MODULE).
@@ -30,6 +30,7 @@ start_link() ->
 %%   Opts = [Option]
 %%   Option = {port, Port} 
 %% @see inet:setopts/2
+-spec start_link(Opts :: list()) -> any().
 start_link(Opts) when is_list(Opts) ->
     ?LOG("start kad_net :~p~n", [Opts]),
     gen_server:start_link({local, ?SERVER}, ?MODULE, Opts, []).
@@ -39,13 +40,13 @@ start_link(Opts) when is_list(Opts) ->
 stop(Reason) ->
     gen_server:cast(?SERVER, {stop, Reason}).
 
-%% @spec socket() -> socket()
 %% @doc return the socket
+-spec socket() -> socket().
 socket() ->
     gen_server:call(?SERVER, socket).
 
-%% @spec send(Addr, Port, Msg) -> ok | {error, Reason}
 %% @doc send the msg
+-spec send(Addr :: ip_address(), Port :: ip_port(), Msg :: msg()) -> 'ok' | {'error', any()}.
 send(Addr, Port, Msg) ->
     Socket = socket(),
     gen_udp:send(Socket, Addr, Port, Msg).
@@ -94,8 +95,8 @@ terminate(_Reason, _State) ->
 code_change(_Old, State, _Extra) ->
     {ok, State}.
 
-%% @spec kad_net_loop(list()) -> void
 %% @doc the kad loop
+-spec kad_net_loop( Socket :: socket() ) -> no_return().
 kad_net_loop(Socket) ->
     case gen_udp:recv(Socket, ?MAX_MSG_LEN) of
         {ok, {Addr, Port, Packet}} ->	    

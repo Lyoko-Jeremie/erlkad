@@ -5,6 +5,20 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
+-include_lib("kernel/include/inet.hrl").
+
+%%%% type define %%%%%%%%%%%%
+-type id() :: <<_:160>>.
+-type socket() :: port().
+-type posix() :: atom().
+-type key() :: id().
+-type data() :: binary().
+-type bucket_index() :: 0..159.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%% variable define %%%%%%%%
 %% version
 -define(Version, "0.1").
 %% kad network version
@@ -43,23 +57,23 @@
 %% not implement
 -define(NOT_IMPL, throw(not_imple)).
 
-%%%%%%%%%%%%%%%%
-%time info
-%%%%%%%%%%%%%%%%
 -define(BUCKET_REFRESH, timer:minutes(10)).
 
 %%%%%%%%%%%%%%%%
 
+
+%%%%% record define %%%%%%%%%%%%%%%%%%
 %% kad node id
 -record(kad_contact, {
-        id,     % the kad node indentify
-	ip,			% the node ip (ip_address)
-	port,       % the port (integer)
-	rtt = 0,	% the rtt
-	nat = false	% nat info
+    id 		:: id(),     		% the kad node indentify
+	ip 		:: ip_address(),	% the node ip (ip_address)
+	port 	:: ip_port(),       % the port (integer)
+	rtt = 0 :: pos_integer(),	% the rtt
+	nat = false	:: bool()		% nat info
 	}).
 
-
+-type contact() :: #kad_contact{}.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% loop infinity wait one msg
 %% example: ?WAIT_MSG(hello, [foo, bar], 1000),
@@ -84,10 +98,3 @@
                 F(F)
                 end()
 		).
-
-
-%%%%%%%%%%%%%%
-%% type define
--type(id() :: <<_:160>>).
-
-%%%%%%%%%%%%%%%

@@ -9,8 +9,8 @@
 
 -export([dispatch/3]).
 
-%% @spec dispatch(ip_address(), integer(), binary()) -> ok | {error, Reason}
 %% @doc dispatch the received msg from socket, *MUST NOT* block
+-spec dispatch(Addr :: ip_address(), Port :: ip_port(), Packet :: binary()) -> 'ok' | {'error', any()}
 dispatch(Addr, Port, Packet) when is_binary(Packet) ->
     Self = kad_node:id(),
     case kad_protocol:parse(Packet) of

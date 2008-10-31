@@ -11,12 +11,8 @@
 -export([gen_msg/4]).
 -export([optype/1]).
 
-%% @type cmd() = integer()
-%% @type identify() = binary()
-%% @type data() = term()
-
-%% @spec parse(binary()) -> {cmd(), identify(), identify(), identify(), data()}
 %% @doc parse the kad msg
+-spec parse(binary()) -> 'ignore' | {cmd(), id(), id(), id(), any()}.
 parse(<<Cmd, D:160/bits, S:160/bits, ID:160/bits, Len:16, Payload:Len/bytes, _Rest/bytes>>) ->
     case parse_data(Cmd, Payload) of
 	ignore ->
@@ -28,16 +24,14 @@ parse(_) ->
     ?LOG("invalid msg~n"),
     ignore.
 
-%% @spec gen_msg(cmd(), identfiy(), identify(), term()) -> binary()
-%% @doc gen the rsp msg
+%% @doc gen the msg
+-spec gen_msg(Cmd :: cmd(), D :: id(), Id :: id(), Args :: any()) -> binary().
 gen_msg(Cmd, D, Id, Args) ->
     Header = <<Cmd, D/binary, (kad_node:id())/binary, Id/binary>>,
     Msg = gen_msg(Cmd, Header, Args),
     ?LOG("gen msg:~p~n", [Msg]),
     Msg.
 
-%% @spec gen_msg(cmd(), identify(), list()) -> binary()
-%% @doc gen the msg
 gen_msg(?PING, Hd, _Dummy) ->
     <<Hd/binary, 0:16>>;
 gen_msg(?PING_FIRST, Hd, _Dummy) ->
@@ -72,9 +66,9 @@ gen_msg(?DELETE_RSP, Hd, _Dummy) ->
     <<Hd/binary, 0:16>>.
 
 
-%% @spec optype(cmd()) -> optype()
 %% @doc return ?OP_REQ if the cmd is a request, 
 %%      return ?OP_RSP if the cmd is a response.
+-spec optype(cmd()) -> optype().
 optype(?PING_FIRST) ->
     ?OP_REQ;
 optype(?PING) ->

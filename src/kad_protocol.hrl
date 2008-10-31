@@ -44,5 +44,7 @@
 -define(E_FAILED, 3).
 
 
-
-
+%% type define
+-type cmd() :: 1, 2, 3, 4, 5, 6, 101, 102, 103, 104, 105, 106, 107.
+-type optype() :: 'req' | 'rsp'.
+-type msg() :: binary().
