@@ -18,7 +18,7 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
--spec lookup(Key :: key()) -> {'value', Value} | 'none'.
+-spec lookup(Key :: key()) -> {'value', data()} | 'none'.
 lookup(Key) ->
     gen_server:call(?SERVER, {lookup, Key}).
 	

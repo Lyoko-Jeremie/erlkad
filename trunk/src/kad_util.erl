@@ -120,7 +120,7 @@ takewhile1(Pred, Acc, [H | T], AccL) ->
 
 
 %% @doc start the timer, the Timer can be either integer(in ms unit) or infinity
--spec start_timer(timeout(), Dest :: pid(), Msg :: any()) -> {'timer', 'infinity'}) | ref().				
+-spec start_timer(timeout(), Dest :: pid(), Msg :: any()) -> {'timer', 'infinity'} | ref().				
 start_timer(infinity, Dest, _Msg) when is_pid(Dest) orelse is_atom(Dest) ->
     {timer, infinity};
 start_timer(Time, Dest, Msg) when is_pid(Dest) orelse is_atom(Dest) ->
