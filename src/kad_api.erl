@@ -41,7 +41,7 @@ ping_first(Addr, Port, Sync) ->
 -spec ping_first(Addr :: ip_address(), 
 		Port :: ip_port(),
 		Sync :: bool(),
-		Timeout :: timeout() ) 
+		Timeout :: 'infinity' | non_neg_integer() ) 
 		-> {'value', id()} | {'error', any()} | {'ok', ref()}.
 ping_first(Addr, Port, Sync, Timeout) ->
     ?LOG("first ping the node:~p:~p\n", [Addr, Port]),
@@ -78,7 +78,7 @@ ping(Node, Addr, Port, Sync) ->
 			Addr :: ip_address(), 
 			Port :: ip_port(),
 			Sync :: bool(),
-			Timeout :: timeout()) 
+			Timeout ::'infinity' | non_neg_integer()) 
 			-> 
 			{'value', id()} | {'error', any()} | {'ok', ref()}.
 ping(Node, Addr, Port, Sync, Timeout) when is_binary(Node)  ->
@@ -120,7 +120,7 @@ find_node(Id) when is_binary(Id) ->
 find_node(Id, Timeout) ->
     find_node(Id, Timeout, true, false).
 -spec find_node(Id :: id(),
-	Timeout :: timeout()',
+	Timeout :: 'infinity' | non_neg_integer(),
 	Sync :: bool(),
 	Discard :: bool()) ->
 	{'value', id()} | {'error', any()} | {'ok', ref()}.
@@ -181,11 +181,11 @@ find_value(Key, 1, _Sync, _Timeout) when is_binary(Key) ->
 
 %% @spec store(ip_address(), integer(), identify(), key(), binary()) -> ok | {error, Reason}
 %% @doc store the key-value pair in kad network
--spec find_value(_Addr :: ip_address(),
+-spec store(_Addr :: ip_address(),
 	_Port :: ip_port(),
 	Node :: id(),
 	{key(), data()},
-	_Sync :: bool(),
+	_Sync :: bool()
 	) ->
 	{'value', id()} | {'error', any()} | {'ok', ref()}.
 store(_Addr, _Port, Node, {Key, Data}, _Sync) when is_binary(Key) andalso is_binary(Data) ->

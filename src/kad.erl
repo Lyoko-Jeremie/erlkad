@@ -64,9 +64,3 @@ get_env(Par, Def) ->
 	    Def
     end.
 
-
-%% get the ip
-get_ip() ->
-    {ok, Name} = inet:gethostname(),
-    {ok, Addr} = inet:getaddr(Name, inet),
-    Addr.

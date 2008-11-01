@@ -45,7 +45,7 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %% @doc return the next msg id to use
--spec msgid() -> msgid()
+-spec msgid() -> msgid().
 msgid() ->
     gen_server:call(?SERVER, msgid).
 
@@ -56,7 +56,7 @@ msgdata(Caller) ->
     #msgdata{pid = Caller, start_stamp = now()}.
 
 %% @doc add a msg invoke to rpc manager
--spec add(KRef :: ref(), MsgId :: msgid(), MsgData :: msgdata()) -> 'ok'
+-spec add(KRef :: ref(), MsgId :: msgid(), MsgData :: msgdata()) -> 'ok'.
 add(KRef, MsgId, MsgData) when is_reference(KRef) andalso is_binary(MsgId) ->
     gen_server:cast(?SERVER, {add, KRef, MsgId, MsgData}).
 
@@ -67,7 +67,7 @@ exist(MsgId) ->
 
 
 %% @doc dispatch the msg
--spec dispatch(MsgId :: msgid(), Src :: id(), Cmd :: cmd(), Msg :: binary()) -> 'ok'
+-spec dispatch(MsgId :: msgid(), Src :: id(), Cmd :: cmd(), Msg :: binary()) -> 'ok'.
 dispatch(MsgId, Src, Cmd, Msg) ->
     gen_server:cast(?SERVER, {dispatch, MsgId, Src, Cmd, Msg}).
 

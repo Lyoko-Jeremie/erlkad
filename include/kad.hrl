@@ -14,6 +14,7 @@
 -type key() :: id().
 -type data() :: binary().
 -type bucket_index() :: 0..159.
+-type timeout() :: 'infinity' | non_neg_integer().
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

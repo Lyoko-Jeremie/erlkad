@@ -43,12 +43,12 @@ global_size() ->
     gen_server:call(?SERVER, global_size).
 
 %% @doc update the k-bucket
--spec update(Node :: id()) -> 'ok'.
+-spec update(Node :: contact()) -> 'ok'.
 update(Node) ->
     gen_server:cast(?SERVER, {update, Node}).
 
 %% @doc return the N closest nodes to Node
--spec closest(Node :: id(), N :: pos_integer()) -> list().
+-spec closest(Node :: id(), N :: pos_integer()) -> {non_neg_integer(), [contact()]}.
 closest(Node, N) ->
     gen_server:call(?SERVER, {closest, Node, N}).
 
@@ -56,7 +56,7 @@ all_nodes() ->
     gen_server:call(?SERVER, all_nodes).
 
 %% @doc random select N nodes from the I bucket
--spec random_nodes(I :: bucket_index(), N :: pos_integer()) -> [node()].
+-spec random_nodes(I :: bucket_index(), N :: pos_integer()) -> [contact()].
 random_nodes(I, N) ->
     gen_server:call(?SERVER, {random, I, N}).
 
