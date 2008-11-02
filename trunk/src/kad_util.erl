@@ -18,7 +18,7 @@
 -spec randid() -> id().
 randid() ->
     {A1, A2, A3} = erlang:now(),
-    crypto:sha(<<A1:4, A2:4, A3:4>>).
+    crypto:sha(<<A1:32, A2:32, A3:32>>).
 
 %% @doc gen the identify 
 -spec id(Data :: binary()) -> id().

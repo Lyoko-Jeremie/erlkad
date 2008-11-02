@@ -66,12 +66,11 @@
 %%%%% record define %%%%%%%%%%%%%%%%%%
 %% kad node id
 -record(kad_contact, {
-    id 		:: id(),     		% the kad node indentify
-	ip 		:: ip_address(),	% the node ip (ip_address)
-	port 	:: ip_port(),       % the port (integer)
-	rtt = 0 :: pos_integer(),	% the rtt
-	nat = false	:: bool()		% nat info
-	}).
+	  id 	:: id(),     		% the kad node indentify
+	  ip 	:: ip_address(),	% the node ip (ip_address)
+	  port 	:: ip_port(),           % the port (integer)
+	  rtt = 0 :: non_neg_integer()	% the rtt
+	 }).
 
 -type contact() :: #kad_contact{}.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -80,22 +79,22 @@
 %% example: ?WAIT_MSG(hello, [foo, bar], 1000),
 %% wait the hello msg and skip the foo, bar msg with timeout 1000 ms
 -define(WAIT_MSG(Msg, Skip, Timeout), 
-            fun() ->
+	fun() ->
 	        F = fun(F) ->
-		        receive
-			    Msg ->
-			        success;
-			    Packet ->
-			        case lists:member(Packet, Skip) of
-				    true ->
-				        F(F);
-				    false ->
-				        {error, msg_unknown}
-                                end
-			after Timeout ->
-			    {error, timeout}
-			end
+			    receive
+				Msg ->
+				    success;
+				Packet ->
+				    case lists:member(Packet, Skip) of
+					true ->
+					    F(F);
+					false ->
+					    {error, msg_unknown}
+				    end
+			    after Timeout ->
+				    {error, timeout}
+			    end
 		    end,
                 F(F)
-                end()
-		).
+	end()
+       ).

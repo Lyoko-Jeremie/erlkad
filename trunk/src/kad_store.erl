@@ -22,9 +22,9 @@ start_link() ->
 lookup(Key) ->
     gen_server:call(?SERVER, {lookup, Key}).
 	
--spec store(Key :: key(), Data :: data()) -> 'ok'.
+-spec store(Key :: key(), Data :: data()) -> 'ok' | {'error', any()}.
 store(Key, Data) ->
-    gen_server:cast(?SERVER, {store, Key, Data}).
+    gen_server:call(?SERVER, {store, Key, Data}).
 
 %%
 %% gen_server callback
@@ -42,12 +42,12 @@ handle_call({lookup, Key}, _From, State) ->
 	    none
     end,
     {reply, Reply, State};
+handle_call({store, Key, Data}, _From, State) ->
+    ets:insert(kad_data, {Key, Data}),
+    {reply, ok, State};    
 handle_call(_Msg, _From, State) ->
     {noreply, State}.
 
-handle_cast({store, Key, Data}, State) ->
-    ets:insert(kad_data, {Key, Data}),
-    {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 

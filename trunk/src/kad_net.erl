@@ -76,7 +76,7 @@ handle_call(_Msg, _From, State) ->
 handle_cast({stop, Reason}, State) ->
     ?LOG("pre stop the kad udp socket:~p~n", [Reason]),
     State#state.pid ! {stop, Reason, self()},
-    case ?WAIT_MSG(stop, [], 1000) of
+    case ?WAIT_MSG(stop, [dummy], 1000) of
         {error, _} ->
 	    ?LOG("stop udp process error~n"),
 	    {stop, ok, State};
@@ -98,13 +98,19 @@ code_change(_Old, State, _Extra) ->
 %% @doc the kad loop
 -spec kad_net_loop( Socket :: socket() ) -> no_return().
 kad_net_loop(Socket) ->
-    case gen_udp:recv(Socket, ?MAX_MSG_LEN) of
-        {ok, {Addr, Port, Packet}} ->	    
-	    kad_coordinator:dispatch(Addr, Port, Packet),
-	    kad_net_loop(Socket);
-	{error, Reason} ->
-	    ?LOG("udp recv error:~p~n", [Reason]),
-	    exit({udp, Reason})
+    case need_stop() of
+	{true, Reason} ->
+	    ?LOG("udp process stop reason:~p\n",[Reason]),
+	    exit(normal);
+	false ->
+	    case gen_udp:recv(Socket, ?MAX_MSG_LEN) of
+		{ok, {Addr, Port, Packet}} ->	    
+		    kad_coordinator:dispatch(Addr, Port, Packet),
+		    kad_net_loop(Socket);
+		{error, Reason} ->
+		    ?LOG("udp recv error:~p~n", [Reason]),
+		    exit({udp, Reason})
+	    end
     end.
 
 %%
@@ -119,10 +125,21 @@ parse_opt(Opts) ->
     UdpOpts2 = 
     case proplists:get_value(active, UdpOpts) of
         true ->
-	    proplists:expand([{active, {active, false}}], UdpOpts);
+	    proplists:expand([{active, [{active, false}]}], UdpOpts);
         false ->
 	    UdpOpts;    
 	undefined ->
 	    [{active, false} | UdpOpts]
     end,
     {Port, UdpOpts2}.
+
+
+need_stop() ->
+    receive 
+	{stop, Ref, Reason, Parent} ->
+	    Parent ! {stop, Ref},
+	    {true, Reason};
+	_ ->
+	    false
+    end.
+	

@@ -71,10 +71,10 @@ random_refresh_bucket() ->
 	 [] -> % don't has nodes in this bucket
 	     ok;
 	 [Node|_] -> % do find for this node
-	     kad_api:find_node(Node, false, true),
-	     ok
+	     kad_api:find_node(Node, infinity, false, true)	    
      end
-     || I <- lists:duplicate(?NODE_ID_LEN, dummy)].
+     || I <- lists:duplicate(?NODE_ID_LEN, dummy)],
+    ok.
 			
 %%
 %% gen_server callback
@@ -214,7 +214,7 @@ update_bucket(Node = #kad_contact{id = Id}, Bucket) ->
 		     {error, Reason} -> % ping the first Node is error, discard it
 			 ?LOG("ping node:~p failed, reason:~p\n", [First, Reason]),
 			 Rest ++ [Node];
-		     success -> % the Node is valid
+		     {value, _} -> % the Node is valid
 			 tl(Bucket) ++ [hd(Bucket)]
 		 end
 	    end
