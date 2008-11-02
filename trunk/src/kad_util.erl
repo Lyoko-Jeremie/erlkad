@@ -102,22 +102,22 @@ distance(X, Y) when is_integer(X) andalso is_integer(Y) ->
 %% @doc take elements from List, where Pred(Element) return {true, Acc},
 %%  the function stop when Pred(Element) return break
 -spec takewhile(Pred :: fun((E :: any(), Acc:: any()) -> {'true', any()} | 'break' | 'false'),
-											Acc :: any(),
-											List :: list()) -> list(). 
+			   Acc :: any(),
+			   List :: list()) -> list(). 
 takewhile(Pred, Acc, List) when is_function(Pred, 2) andalso is_list(List) ->
-	takewhile1(Pred, Acc, List, []).
+    takewhile1(Pred, Acc, List, []).
 
 takewhile1(_Pred, _Acc, [], AccL) ->
-	lists:reverse(AccL);
+    lists:reverse(AccL);
 takewhile1(Pred, Acc, [H | T], AccL) ->
-	case Pred(H, Acc) of
-		{true, Acc2} ->			
-			takewhile1(Pred, Acc2, T, [H | AccL]);
-		false ->
-			takewhile1(Pred, Acc, T, AccL);
-		break ->
-			takewhile1(Pred, Acc, [], AccL)
-	end.
+    case Pred(H, Acc) of
+	{true, Acc2} ->			
+	    takewhile1(Pred, Acc2, T, [H | AccL]);
+	false ->
+	    takewhile1(Pred, Acc, T, AccL);
+	break ->
+	    takewhile1(Pred, Acc, [], AccL)
+    end.
 
 
 %% @doc start the timer, the Timer can be either integer(in ms unit) or infinity
@@ -164,7 +164,7 @@ takewhile_test_() ->
 	     end,
 
     [
-     ?_assert(takewhile(FTo100, 0, L) =:= [1, 20, 33, 23, 34])
+     ?_assert(takewhile(FTo100, 0, L) =:= [1, 20, 33, 23])
     ].
     
 -endif.
