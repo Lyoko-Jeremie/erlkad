@@ -100,7 +100,9 @@ handle_cast({add, KRef, MsgId, MsgData = #msgdata{}}, State) ->
 handle_cast({dispatch, MsgId, _Src, Cmd, Msg}, State) ->
     case ets:lookup(?RPCTABLE, MsgId) of
 	[#item{ref = KRef, data = #msgdata{pid = Pid}}] ->
-	    do_notify_msg(Pid, KRef, Cmd, Msg);	
+	    do_notify_msg(Pid, KRef, Cmd, Msg),
+	    % remove this entry
+	    do_remove_entry(MsgId);
 	[] ->
 	    ?LOG("this msg:~p is not exist in rpc manager~n", [MsgId])	    
     end,
@@ -122,4 +124,13 @@ code_change(_Old, State, _Extra) ->
 %%
 
 do_notify_msg(Pid, KRef, Cmd, Msg) when is_pid(Pid) ->
-    Pid ! {KRef, Cmd, Msg}.
+    case is_process_alive(Pid) of
+	true ->
+	    Pid ! {KRef, Cmd, Msg};
+	false ->
+	    {error, noproc}
+    end.
+
+
+do_remove_entry(MsgId) ->
+    ets:delete(?RPCTABLE, MsgId).

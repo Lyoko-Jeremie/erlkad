@@ -71,7 +71,8 @@ random_refresh_bucket() ->
 	 [] -> % don't has nodes in this bucket
 	     ok;
 	 [Node|_] -> % do find for this node
-	     kad_api:find_node(Node, false, true)
+	     kad_api:find_node(Node, false, true),
+	     ok
      end
      || I <- lists:duplicate(?NODE_ID_LEN, dummy)].
 			
@@ -190,7 +191,7 @@ do_random_from_bucket1(0, _Bucket, Acc) ->
     Acc;
 do_random_from_bucket1(N, Bucket, Acc) ->
     L = length(Bucket),
-    Index = random:unifrom(L - 1) + 1,
+    Index = random:uniform(L - 1) + 1,
     Node = lists:nth(Index, Bucket),
     Bucket2 = lists:sublist(Bucket, Index - 1) ++ lists:sublist(Bucket, Index + 1, L - Index),
     do_random_from_bucket1(N - 1, Bucket2, [Node | Acc]).
@@ -207,9 +208,9 @@ update_bucket(Node = #kad_contact{id = Id}, Bucket) ->
 	    if Len < ?KK -> % the bucket is not full
 		 Bucket ++ [Node];
 	       true -> % the bucket is full
-		 [First | Rest] = Bucket,
+		 [First = #kad_contact{id = Id, ip = Ip, port = Port} | Rest] = Bucket,
   		 % check the first Node
-		 case kad_net:ping(First) of
+		 case kad_api:ping(Id, Ip, Port, true) of
 		     {error, Reason} -> % ping the first Node is error, discard it
 			 ?LOG("ping node:~p failed, reason:~p\n", [First, Reason]),
 			 Rest ++ [Node];

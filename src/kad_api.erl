@@ -173,13 +173,13 @@ find_value(Key, 1, Sync) ->
 -spec find_value(Key :: id(),
 	pos_integer(),
 	_Sync :: bool(),
-	_Timeout :: bool()) ->
-	{'value', id()} | {'error', any()} | {'ok', ref()}.
+	_Timeout :: 'infinity' | non_neg_integer()) ->
+        'ok'.
+%	{'value', id()} | {'error', any()} | {'ok', ref()}.
 find_value(Key, 1, _Sync, _Timeout) when is_binary(Key) ->
     ?LOG("find_value start:~p~n", [Key]),    
     ok.    	
 
-%% @spec store(ip_address(), integer(), identify(), key(), binary()) -> ok | {error, Reason}
 %% @doc store the key-value pair in kad network
 -spec store(_Addr :: ip_address(),
 	_Port :: ip_port(),
@@ -187,7 +187,8 @@ find_value(Key, 1, _Sync, _Timeout) when is_binary(Key) ->
 	{key(), data()},
 	_Sync :: bool()
 	) ->
-	{'value', id()} | {'error', any()} | {'ok', ref()}.
+        'ok'.
+%	{'value', id()} | {'error', any()} | {'ok', ref()}.
 store(_Addr, _Port, Node, {Key, Data}, _Sync) when is_binary(Key) andalso is_binary(Data) ->
     ?LOG("store the key-value:~p to:~p\n", [{Key, Data}, Node]),
     ok.
@@ -301,7 +302,7 @@ wait_k_rsp1(Cmd, N, Acc) ->
 
 %% add the nodes to search list
 add_searchlist(Nodes, Search) ->
-FAdd = fun(#kad_contact{} = Node, List) ->
+    FAdd = fun(#kad_contact{} = Node, List) ->
 	       kad_searchlist:add(Node, List)
        end,
     lists:foldl(FAdd, Search, Nodes).    	  

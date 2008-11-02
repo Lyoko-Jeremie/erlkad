@@ -35,7 +35,7 @@ init(_Args) ->
 
 handle_call({lookup, Key}, _From, State) ->
     Reply = 
-    case est:lookup(kad_data, Key) of
+    case ets:lookup(kad_data, Key) of
 	[Value] ->
 	    {value, Value};
 	[] ->

@@ -90,7 +90,8 @@ integer_to_id(N) ->
     <<(N band 16#ff), (integer_to_id(N bsr 8))/binary>>.
 
 %% @doc return the distance based XOR operation
--spec distance(X :: id(), Y :: id()) -> non_neg_integer().
+-spec distance(X :: id() | non_neg_integer(),
+	       Y :: id() | non_neg_integer()) -> non_neg_integer().
 distance(X, Y) when is_binary(X) andalso is_binary(Y) ->
     X1 = id_to_integer(X),
     Y1 = id_to_integer(Y),

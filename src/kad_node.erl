@@ -47,12 +47,12 @@ virtual() ->
     gen_server:call(?SERVER, {get, virtual}).
 
 %% @doc return the distance between X and self( based XOR)
--spec distance(X :: id()) -> id().
+-spec distance(X :: id()) -> non_neg_integer().
 distance(X) ->
     distance(id(), X).
 
 %% @doc return the distance between X and Y
--spec distance(X :: id(), Y :: id()) -> id().
+-spec distance(X :: id(), Y :: id()) -> non_neg_integer().
 distance(X, Y) ->
     kad_util:distance(X, Y).
 
