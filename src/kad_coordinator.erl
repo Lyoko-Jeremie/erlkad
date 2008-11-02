@@ -71,7 +71,7 @@ do_reply(Dest, Id, ?PING, _Msg) ->
 do_reply(Dest, Id, ?PING_FIRST, _Msg) ->
     kad_protocol:gen_msg(?PING_FIRST_RSP, Dest, Id, kad_node:id());
 do_reply(Dest, Id, ?FIND_NODE, Node) ->
-    {N, Closest} = kad_rotining:closest(Node, ?K),
+    {N, Closest} = kad_routing:closest(Node, ?K),
     ?LOG("response ~p closest nodes to ~p:~p\n", [N, Dest, Closest]),
     kad_protocol:gen_msg(?FIND_NODE_RSP, Dest, Id, Closest);
 do_reply(Dest, Id, ?FIND_VALUE, Key) ->

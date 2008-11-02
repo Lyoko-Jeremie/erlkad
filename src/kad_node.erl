@@ -60,6 +60,7 @@ distance(X, Y) ->
 -spec new_node(Id :: id(), Addr :: ip_address(), Port :: ip_port()) -> contact().
 new_node(Id, Addr, Port) ->
     #kad_contact{id = Id, ip = Addr, port = Port}.
+    
 
 %% gen_server callbacks
 init({Addr, Port, Virtual}) ->
