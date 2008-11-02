@@ -10,7 +10,7 @@
 -export([dispatch/3]).
 
 %% @doc dispatch the received msg from socket, *MUST NOT* block
--spec dispatch(Addr :: ip_address(), Port :: ip_port(), Packet :: binary()) -> 'ok' | {'error', any()}.
+-spec dispatch(Addr :: ip_address(), Port :: ip_port(), Packet :: binary()) -> 'ok'.
 dispatch(Addr, Port, Packet) when is_binary(Packet) ->
     Self = kad_node:id(),
     case kad_protocol:parse(Packet) of
@@ -31,14 +31,7 @@ dispatch(Addr, Port, Packet) when is_binary(Packet) ->
 			    ok
 	            end,
 		    % rpc manager dispatch the msg
-		    case kad_rpc_mgr:dispatch(Id, Src, Cmd, Data) of
-			ok ->
-			    ?LOG("msg success dispatch~n"),
-			    ok;
-			{error, noproc} ->
-			    ?LOG("msg is not mine~n"),
-			    {error, noproc}
-		    end
+		    kad_rpc_mgr:dispatch(Id, Src, Cmd, Data)
 	    end;
 	ignore -> 
 	    ?LOG("msg parse error ignore:~p~n", [Packet]),
@@ -86,7 +79,7 @@ do_reply(Dest, Id, ?FIND_VALUE, Key) ->
     case kad_store:lookup(Key) of
 	{value, Value} ->
     	    ?LOG("response ~p FIND_VALUE msg. [key:~p data:~p]\n", [Dest, Key, Value]),
-	    kad_protocol:gen_msg(?FIND_VALUE_RSP, Value);
+	    kad_protocol:gen_msg(?FIND_VALUE_RSP, Dest, Id, Value);
 	none ->
 	    do_reply(Dest, Id, ?FIND_NODE, Key)
     end;

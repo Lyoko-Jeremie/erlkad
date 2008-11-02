@@ -28,7 +28,7 @@ new(Tar) ->
 %% @doc add a contact to search list
 -spec add(contact(), State :: searchlist()) -> searchlist().
 add(#kad_contact{} = Node, State) ->
-    D = kad_node:distance(Node, State#searchlist.target),
+    D = kad_node:distance(Node#kad_contact.id, State#searchlist.target),
     List = [#item{dist = D, node = Node} | State#searchlist.list],
     SortL = lists:keysort(#item.dist, List),
     Size = State#searchlist.size + 1,

@@ -131,7 +131,7 @@ parse_data(_Cmd, _Payload) ->
 parse_nodes(Nodes) ->
     parse_nodes(Nodes, []).
 
-parse_nodes(<<D1, D2, D3, D4, Port:2, Node:160/bits, Rest/bytes>>, Acc) ->
+parse_nodes(<<D1, D2, D3, D4, Port:2, Node:160/bits, Rest/bytes>>, Acc) when is_list(Acc) ->
     %case inet_parse:address(binary_to_list(Ip)) of
     Entry = #kad_contact{id = Node, ip = {D1, D2, D3, D4}, port = Port},
     parse_nodes(Rest, [Entry | Acc]);
