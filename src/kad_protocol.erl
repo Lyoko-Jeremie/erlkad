@@ -16,12 +16,13 @@
 parse(<<Cmd, D:160/bits, S:160/bits, ID:160/bits, Len:16, Payload:Len/bytes, _Rest/bytes>>) ->
     case parse_data(Cmd, Payload) of
 	ignore ->
+	    ?LOG("parse data error~n"),
 	    ignore;
 	Data ->
 	    {Cmd, D, S, ID, Data}
     end;
 parse(_) ->
-    ?LOG("invalid msg~n"),
+    ?LOG("invalid msg format~n"),
     ignore.
 
 %% @doc gen the msg
@@ -54,7 +55,7 @@ gen_msg(?PING_FIRST_RSP, Hd, Self) ->
 gen_msg(?PING_FIRST_ACK, Hd, _Dummy) ->
     <<Hd/binary, 0:16>>;
 gen_msg(?STORE_RSP, Hd, Value) ->
-    <<Hd/binary, Value>>;
+    <<Hd/binary, 1:16, Value>>;
 gen_msg(?FIND_NODE_RSP, Hd, Nodes) when is_list(Nodes) ->
     Data = gen_nodes(Nodes),
     Len = byte_size(Data),
@@ -117,8 +118,12 @@ parse_data(?DELETE, <<Key:160/bits>>) ->
 
 parse_data(?PING_RSP, <<>>) ->
     none;
-parse_data(?STORE_RSP, <<>>) ->
+parse_data(?PING_FIRST_RSP, <<Id:160/bits>>) ->
+    Id;
+parse_data(?PING_FIRST_ACK, <<>>) ->
     none;
+parse_data(?STORE_RSP, <<Value>>) ->
+    Value;
 parse_data(?FIND_NODE_RSP, Nodes) ->
     parse_nodes(Nodes);
 parse_data(?FIND_VALUE_RSP, Data) ->
@@ -136,14 +141,14 @@ parse_nodes(<<D1, D2, D3, D4, Port:16, Node:160/bits, Rest/bytes>>, Acc) ->
     Entry = #kad_contact{id = Node, ip = {D1, D2, D3, D4}, port = Port},
     parse_nodes(Rest, [Entry | Acc]);
 parse_nodes(<<>>, Acc) ->
-    lists:reverse(Acc).
+    Acc.
 
 
 gen_nodes(Nodes) when is_list(Nodes) ->
     gen_nodes(Nodes, []).
 
-gen_nodes([{{D1, D2, D3, D4}, Port, Id} | Rest], Acc) ->
-    Entry = <<D1, D2, D3, D4, Port:2, Id/bytes>>,
+gen_nodes([#kad_contact{ip = {D1, D2, D3, D4}, port = Port, id = Id} | Rest], Acc) ->
+    Entry = <<D1, D2, D3, D4, Port:16, Id/bytes>>,
     gen_nodes(Rest, [Entry | Acc]);
 gen_nodes([], Acc) ->
     list_to_binary(Acc).
@@ -161,23 +166,25 @@ proto_test_() ->
     Id = <<16#ddddddddddd:160>>,	
     Key = <<16#134132132304da83313de333234324:160>>,
     Data = <<12, 34, 23, 34, 32, 1, 34, 32, 81, 112>>,
-    NodeList1 = [{{127,0,0,1}, 2100, Id}, {{192, 168, 1, 1}, 2112, Id}],
+    NodeList1 = [#kad_contact{ ip = {127,0,0,1}, port = 2100, id = Id}, #kad_contact{ip = {192, 168, 1, 1}, port = 2112, id = Id}],
     NodeList2 = [],
+    %Msg_SR = gen_msg2(?FIND_VALUE_RSP, D, S, Id, Data),
+    %io:format("msg :~p~n parse:~p~n", [Msg_SR, parse(Msg_SR)]),
     [
-     ?_assert(parse(gen_msg2(?PING, D, S, Id, dummy)) =:= {?PING, D, S, Id, dummy}),
-     ?_assert(parse(gen_msg2(?PING_FIRST, D, S, Id, dummy)) =:= {?PING_FIRST, D, S, Id, dummy}),
+     ?_assert(parse(gen_msg2(?PING, D, S, Id, dummy)) =:= {?PING, D, S, Id, none}),
+     ?_assert(parse(gen_msg2(?PING_FIRST, D, S, Id, dummy)) =:= {?PING_FIRST, D, S, Id, none}),
      ?_assert(parse(gen_msg2(?STORE, D, S, Id, {Key, Data})) =:= {?STORE, D, S, Id, {Key, Data}}),
      ?_assert(parse(gen_msg2(?FIND_NODE, D, S, Id, Key)) =:= {?FIND_NODE, D, S, Id, Key}),
      ?_assert(parse(gen_msg2(?FIND_VALUE, D, S, Id, Key)) =:= {?FIND_VALUE, D, S, Id, Key}),
      ?_assert(parse(gen_msg2(?DELETE, D, S, Id, Key)) =:= {?DELETE, D, S, Id, Key}),
 
-     ?_assert(parse(gen_msg2(?PING_RSP, D, S, Id, dummy)) =:= {?PING_RSP, D, S, Id, dummy}),
+     ?_assert(parse(gen_msg2(?PING_RSP, D, S, Id, dummy)) =:= {?PING_RSP, D, S, Id, none}),
      ?_assert(parse(gen_msg2(?PING_FIRST_RSP, D, S, Id, Key)) =:= {?PING_FIRST_RSP, D, S, Id, Key}),
-     ?_assert(parse(gen_msg2(?STORE_RSP, D, S, Id, 1)) =:= {?STORE, D, S, Id, 1}),
+     ?_assert(parse(gen_msg2(?STORE_RSP, D, S, Id, 1)) =:= {?STORE_RSP, D, S, Id, 1}),
      ?_assert(parse(gen_msg2(?FIND_NODE_RSP, D, S, Id, NodeList1)) =:= {?FIND_NODE_RSP, D, S, Id, NodeList1}),
      ?_assert(parse(gen_msg2(?FIND_NODE_RSP, D, S, Id, NodeList2)) =:= {?FIND_NODE_RSP, D, S, Id, NodeList2}),
-     ?_assert(parse(gen_msg2(?FIND_VALUE_RSP, D, S, Id, Data)) =:= {?FIND_VALUE, D, S, Id, Data}),
-     ?_assert(parse(gen_msg2(?PING_FIRST_ACK, D, S, Id, Key)) =:= {?PING_FIRST_ACK, D, S, Id, Key})
+     ?_assert(parse(gen_msg2(?FIND_VALUE_RSP, D, S, Id, Data)) =:= {?FIND_VALUE_RSP, D, S, Id, Data}),
+     ?_assert(parse(gen_msg2(?PING_FIRST_ACK, D, S, Id, dummy)) =:= {?PING_FIRST_ACK, D, S, Id, none})
     ].
 
 -endif.
