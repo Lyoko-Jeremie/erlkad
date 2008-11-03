@@ -1,6 +1,6 @@
 2008.10.30 cheng
-1, eunit test and dialyzer test complete!
-2, find_node api test complete
+1, eunit test and dialyzer test complete! [¡Ì]
+2, find_node api test complete 
 3, write find_value api
 4, write store api
 5, erlware create release
