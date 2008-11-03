@@ -67,6 +67,7 @@ ping_first(Addr, Port, Sync, Timeout) ->
 			    {ok, KRef}
 		    end;
 		Other ->
+		    ?LOG("send msg error:~p\n", [Other]),
 		    Other	       
 	    end
     end.

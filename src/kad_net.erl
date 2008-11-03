@@ -48,6 +48,7 @@ socket() ->
 %% @doc send the msg
 -spec send(Addr :: ip_address(), Port :: ip_port(), Msg :: msg()) -> 'ok' | {'error', any()}.
 send(Addr, Port, Msg) ->
+    ?LOG("send msg:[~p:~p] ~p\n", [Addr, Port, Msg]),
     Socket = socket(),
     gen_udp:send(Socket, Addr, Port, Msg).
 
@@ -57,10 +58,9 @@ send(Addr, Port, Msg) ->
 init(Opts) ->
     process_flag(trap_exit, true),
     {Port, UdpOpts} = parse_opt(Opts),
-    ?LOG("kad open udp port:~p Opt:~p~n", [Port, UdpOpts]),
     case gen_udp:open(Port, UdpOpts) of
         {ok, Socket} ->
-	    ?LOG("kad_net open port success~n"),
+	    ?LOG("kad open udp port:~p socket:~p~n", [Port, Socket]),
             Pid = proc_lib:spawn_link(?MODULE, kad_net_loop, [Socket]),
             State = #state{socket = Socket, pid = Pid},
 	    {ok, State};
@@ -104,7 +104,8 @@ kad_net_loop(Socket) ->
 	    exit(normal);
 	false ->
 	    case gen_udp:recv(Socket, ?MAX_MSG_LEN) of
-		{ok, {Addr, Port, Packet}} ->	    
+		{ok, {Addr, Port, Packet}} ->
+		    ?LOG("recv packet:[~p:~p] ~p\n", [Addr, Port, Packet]),
 		    kad_coordinator:dispatch(Addr, Port, Packet),
 		    kad_net_loop(Socket);
 		{error, Reason} ->
@@ -140,6 +141,8 @@ need_stop() ->
 	    Parent ! {stop, Ref},
 	    {true, Reason};
 	_ ->
+	    false
+    after 0 ->
 	    false
     end.
 	

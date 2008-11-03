@@ -12,9 +12,11 @@
 %% @doc dispatch the received msg from socket, *MUST NOT* block
 -spec dispatch(Addr :: ip_address(), Port :: ip_port(), Packet :: binary()) -> 'ok'.
 dispatch(Addr, Port, Packet) when is_binary(Packet) ->
+    ?LOG("dispatch msg:[~p:~p] ~p\n", [Addr, Port, Packet]),
     Self = kad_node:id(),
     case kad_protocol:parse(Packet) of
-        {Cmd, Dest, Src, Id, Data} when Dest =/= Self ->
+        {Cmd, Dest, Src, Id, Data} when Dest =:= Self ->
+	    ?LOG("recv msg:~p\n", [Cmd]),
 	    case kad_protocol:optype(Cmd) of
 		?OP_REQ ->
 		    %% it's request
@@ -61,6 +63,7 @@ reply(Addr, Port, Dest, Id, Cmd, Msg) ->
 		      ?LOG("the request msg is ingore[~p:~p]\n", [?MODULE, ?LINE]),
 		      exit(normal);
 		  Rsp ->
+		      ?LOG("reply [~p:~p] msg:~p\n", [Addr, Port, Rsp]),
 		      kad_net:send(Addr, Port, Rsp)
 	      end
       end).

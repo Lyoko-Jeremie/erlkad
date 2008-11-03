@@ -147,7 +147,14 @@ get_bucket(Key, Buckets) ->
     Dist = kad_node:distance(Key),
     Index = kad_util:log2(Dist),
     % get the bucket
-    {Index, array:get(Index, Buckets)}.
+    Bucket =
+    case catch array:get(Index, Buckets) of
+	{'EXIT', {badarg, _}} ->
+	    [];
+	B ->
+	    B
+    end,
+    {Index, Bucket}.
 	
 %% get the closest nodes
 do_closest(Node, N, #state{buckets = Buckets, actives = Actives}) ->
