@@ -12,19 +12,18 @@
 %% @doc dispatch the received msg from socket, *MUST NOT* block
 -spec dispatch(Addr :: ip_address(), Port :: ip_port(), Packet :: binary()) -> 'ok'.
 dispatch(Addr, Port, Packet) when is_binary(Packet) ->
-    ?LOG("dispatch msg:[~p:~p] ~p\n", [Addr, Port, Packet]),
+    ?LOG("recv msg:[~p:~p] ~p\n", [Addr, Port, Packet]),
     Self = kad_node:id(),
     case kad_protocol:parse(Packet) of
-        {Cmd, Dest, Src, Id, Data} when Dest =:= Self ->
-	    ?LOG("recv msg:~p\n", [Cmd]),
+        {Cmd, Dest, Src, Id, Data} when Dest =:= Self orelse Cmd =:= ?PING_FIRST ->
+	    %?LOG("recv msg:~p\n", [Cmd]),
+	    may_update_bucket(Cmd, Src, Addr, Port),
 	    case kad_protocol:optype(Cmd) of
-		?OP_REQ ->
-		    %% it's request
-		    may_update_bucket(Cmd, Id, Addr, Port),
-		    %% reply the cmd(non block)
+		?OP_REQ -> % it's request
+		    % reply the cmd(non block)
 		    reply(Addr, Port, Src, Id, Cmd, Data);
 		?OP_RSP ->
-		    %% it's response
+		    % it's response
 		    % if the msg is PING_FIRST_RSP, we must send a PING_FIRST_ACK msg
 		    case Cmd of
 		        ?PING_FIRST_RSP -> 
@@ -48,10 +47,8 @@ dispatch(Addr, Port, Packet) when is_binary(Packet) ->
 %% 
 
 %% if this msg can update the bucket
-may_update_bucket(Cmd, Id, Addr, Port) when Cmd /= ?PING ->
-    kad_routing:update(kad_node:new_node(Id, Addr, Port));
-may_update_bucket(_Cmd, _Id, _Addr, _Port) ->
-    ok.
+may_update_bucket(_Cmd, Id, Addr, Port) ->
+    kad_routing:update(kad_node:new_node(Id, Addr, Port)).
 
 
 %% reply the request, spawn new process
