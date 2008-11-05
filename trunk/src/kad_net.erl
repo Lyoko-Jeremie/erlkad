@@ -105,7 +105,7 @@ kad_net_loop(Socket) ->
 	false ->
 	    case gen_udp:recv(Socket, ?MAX_MSG_LEN) of
 		{ok, {Addr, Port, Packet}} ->
-		    ?LOG("recv packet:[~p:~p] ~p\n", [Addr, Port, Packet]),
+		    %?LOG("recv packet:[~p:~p] ~p\n", [Addr, Port, Packet]),
 		    kad_coordinator:dispatch(Addr, Port, Packet),
 		    kad_net_loop(Socket);
 		{error, Reason} ->

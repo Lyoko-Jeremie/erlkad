@@ -83,6 +83,7 @@ init(_Args) ->
     start_refresh_timer(),
     Buckets = array:new([{size, ?NODE_ID_LEN}, {fixed, true}, {default, []}]),
     State = #state{buckets = Buckets},
+    ?LOG("routing server init state:~p\n", [State]),
     {ok, State}.	
 
 handle_call(size, _From, State) ->
@@ -93,6 +94,7 @@ handle_call(global_size, _From, State) ->
     Count = 2 bsl (?NODE_ID_LEN - Low) * State#state.size,
     {reply, Count, State};
 handle_call({closest, Node, N}, _From, State) ->
+    ?LOG("handle_call closest:~p~n", [State]),
     Closest = do_closest(Node, N, State),
     {reply, Closest, State};
 handle_call(all_nodes, _From, State) ->
@@ -157,7 +159,10 @@ get_bucket(Key, Buckets) ->
     {Index, Bucket}.
 	
 %% get the closest nodes
-do_closest(Node, N, #state{buckets = Buckets, actives = Actives}) ->
+do_closest(Node, N, State) ->
+    ?LOG("do_closest Node:~p N:~p State:~p ~n", [Node, N, State]);
+do_closest(Node, N, #state{buckets = Buckets, actives = Actives} = States) ->
+    ?LOG("do_closest ~p ~p ~p ~n", [Node, N, States]),
     {Index, Bucket} = get_bucket(Node, Buckets),
     Acc1 = lists:sublist(Bucket, N),
     AccN1 = length(Acc1),
@@ -207,12 +212,14 @@ do_random_from_bucket1(N, Bucket, Acc) ->
 update_bucket(Node = #kad_contact{id = Id}, Bucket) ->
     case lists:keysearch(Id, #kad_contact.id, Bucket) of
 	{value, _ExistNode} ->
+	    ?LOG("the node exist in bucket\n"),
 	    % move it to the end of list
 	    Bucket2 = lists:keydelete(Id, #kad_contact.id, Bucket),
 	    lists:append(Bucket2, [Node]);
 	false -> % not exist in bucket
 	    Len = length(Bucket),
 	    if Len < ?KK -> % the bucket is not full
+		 ?LOG("new node [~p:~p] ~p to k-bucket\n", [Node#kad_contact.ip, Node#kad_contact.port, Node#kad_contact.id]),
 		 Bucket ++ [Node];
 	       true -> % the bucket is full
 		 [First = #kad_contact{id = Id, ip = Ip, port = Port} | Rest] = Bucket,

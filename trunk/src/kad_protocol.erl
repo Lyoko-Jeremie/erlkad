@@ -30,7 +30,7 @@ parse(_) ->
 gen_msg(Cmd, D, Id, Args) ->
     Header = <<Cmd, D/binary, (kad_node:id())/binary, Id/binary>>,
     Msg = gen_msg(Cmd, Header, Args),
-    ?LOG("gen msg:~p~n", [Msg]),
+    %?LOG("gen msg:~p~n", [Msg]),
     Msg.
 
 gen_msg(?PING, Hd, _Dummy) ->
