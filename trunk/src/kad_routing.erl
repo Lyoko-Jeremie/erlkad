@@ -120,7 +120,7 @@ handle_call(_Msg, _From, State) ->
 handle_cast({stop, Reason}, State) ->
     {stop, Reason, State};
 handle_cast({update, Node}, State) ->
-    State2 = do_update(Node, State#state.buckets),
+    State2 = do_update(Node, State),
     {noreply, State2};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -139,10 +139,19 @@ code_change(_Old, State, _Extra) ->
 %%
 
 %% update the buckets
-do_update(Node = #kad_contact{id = Id}, Buckets) ->   
-    % get the bucket
-    {_Index, Bucket} = get_bucket(Id, Buckets),
-    update_bucket(Node, Bucket).
+do_update(Node = #kad_contact{id = Id}, State#state{bucket = Buckets, actives = Actives}) ->   
+    % get the bucket	
+    {Index, B} = get_bucket(Id, Buckets),	
+    B2 = update_bucket(Node, B),
+	Bs2 = array:set(Index, B2, Buckets),
+	As2 = 
+	case B of
+		[] ->
+			[Index | Actives];
+		[_|_] ->
+			Actives
+	end,
+	State#state{bucket = Bs2, actives = As2}.
 
 %% get the bucket
 get_bucket(Key, Buckets) ->
