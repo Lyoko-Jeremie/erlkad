@@ -94,7 +94,6 @@ handle_call(global_size, _From, State) ->
     Count = 2 bsl (?NODE_ID_LEN - Low) * State#state.size,
     {reply, Count, State};
 handle_call({closest, Node, N}, _From, State) ->
-    ?LOG("handle_call closest:~p~n", [State]),
     Closest = do_closest(Node, N, State),
     {reply, Closest, State};
 handle_call(all_nodes, _From, State) ->
@@ -139,24 +138,31 @@ code_change(_Old, State, _Extra) ->
 %%
 
 %% update the buckets
-do_update(Node = #kad_contact{id = Id}, State#state{bucket = Buckets, actives = Actives}) ->   
+do_update(Node = #kad_contact{id = Id}, State = #state{buckets = Buckets, actives = Actives}) ->   
     % get the bucket	
     {Index, B} = get_bucket(Id, Buckets),	
     B2 = update_bucket(Node, B),
-	Bs2 = array:set(Index, B2, Buckets),
-	As2 = 
+    ?LOG("do_update :~p ~p ~p~n", [Index, B2, Buckets]),
+    Bs2 = array:set(Index, B2, Buckets),
+    As2 = 
 	case B of
-		[] ->
-			[Index | Actives];
-		[_|_] ->
-			Actives
+	    [] ->
+		[Index | Actives];
+	    [_|_] ->
+		Actives
 	end,
-	State#state{bucket = Bs2, actives = As2}.
+    State#state{buckets = Bs2, actives = As2}.
 
 %% get the bucket
 get_bucket(Key, Buckets) ->
     Dist = kad_node:distance(Key),
-    Index = kad_util:log2(Dist),
+    if Dist =:= 0 ->
+	    erlang:error(badarg); % "the Key is self"
+       true ->
+	    ok
+    end,
+    ?LOG("dist in get_bucket:~p ~p ~p\n", [Key, kad_node:id(),Dist]),
+    Index = kad_util:log2(Dist) - 1,
     % get the bucket
     Bucket =
     case catch array:get(Index, Buckets) of
@@ -168,12 +174,15 @@ get_bucket(Key, Buckets) ->
     {Index, Bucket}.
 	
 %% get the closest nodes
-do_closest(Node, N, State) ->
-    ?LOG("do_closest Node:~p N:~p State:~p ~n", [Node, N, State]);
 do_closest(Node, N, #state{buckets = Buckets, actives = Actives} = States) ->
     ?LOG("do_closest ~p ~p ~p ~n", [Node, N, States]),
-    {Index, Bucket} = get_bucket(Node, Buckets),
-    Acc1 = lists:sublist(Bucket, N),
+    Acc1 = 
+    case catch get_bucket(Node, Buckets) of
+	{'EXIT', {badarg, _}} ->
+	   [];
+	{Index, Bucket} ->
+	    lists:sublist(Bucket, N)
+    end,
     AccN1 = length(Acc1),
     if AccN1 =:= N ->
 	    {AccN1, Acc1};
