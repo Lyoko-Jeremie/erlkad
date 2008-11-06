@@ -176,19 +176,19 @@ get_bucket(Key, Buckets) ->
 %% get the closest nodes
 do_closest(Node, N, #state{buckets = Buckets, actives = Actives} = States) ->
     ?LOG("do_closest ~p ~p ~p ~n", [Node, N, States]),
-    Acc1 = 
     case catch get_bucket(Node, Buckets) of
 	{'EXIT', {badarg, _}} ->
-	   [];
-	{Index, Bucket} ->
-	    lists:sublist(Bucket, N)
-    end,
-    AccN1 = length(Acc1),
-    if AccN1 =:= N ->
-	    {AccN1, Acc1};
-       true -> % not enough nodes
-	    Actives2 = Actives -- [Index],
-	    do_closest1(Actives2, Buckets, N - AccN1, Acc1, AccN1)
+	   do_closest1(Actives, Buckets, N, [], 0);
+	{I, B} ->
+	    Acc1 = lists:sublist(B, N),
+	    AccN1 = length(Acc1),
+	    if AccN1 =:= N ->
+		    {AccN1, Acc1};
+	       true -> % not enough nodes
+		    Actives2 = Actives -- [I],
+		    do_closest1(Actives2, Buckets, N - AccN1, Acc1, AccN1)
+	    end
+	    
     end.
     
 do_closest1(_Actives, _Buckets, 0, Acc, AccN) ->
