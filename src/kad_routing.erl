@@ -142,7 +142,7 @@ do_update(Node = #kad_contact{id = Id}, State = #state{buckets = Buckets, active
     % get the bucket	
     {Index, B} = get_bucket(Id, Buckets),	
     B2 = update_bucket(Node, B),
-    ?LOG("do_update :~p ~p ~p~n", [Index, B2, Buckets]),
+    %?LOG("do_update :~p ~p ~p~n", [Index, B2, Buckets]),
     Bs2 = array:set(Index, B2, Buckets),
     As2 = 
 	case B of
@@ -161,7 +161,7 @@ get_bucket(Key, Buckets) ->
        true ->
 	    ok
     end,
-    ?LOG("dist in get_bucket:~p ~p ~p\n", [Key, kad_node:id(),Dist]),
+    %?LOG("dist in get_bucket:~p ~p ~p\n", [Key, kad_node:id(),Dist]),
     Index = kad_util:log2(Dist) - 1,
     % get the bucket
     Bucket =
