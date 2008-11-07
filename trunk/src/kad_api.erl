@@ -235,8 +235,8 @@ send_find_to_nodes(Cmd, KRef, Key, Nodes, Caller) ->
 		         send_msg(Addr, Port, KRef, MsgId, Msg, Caller)			 
 	      end, 
 	      Nodes),
-	  % zip the two list
-	  NodesRet = lists:zip(Nodes, Ret),
+    % zip the two list
+    NodesRet = lists:zip(Nodes, Ret),
     FSuccess = fun({_, ok}) -> true;
 		  ({_, {error, _}}) -> false
 	       end,				
@@ -260,10 +260,13 @@ wait_rsp_iter(KRef, Target, SearchList, Discard, TimerId) ->
     wait_rsp_iter1(KRef, Target, SearchList, Discard, TimerId).
 
 wait_rsp_iter1(KRef, Target, SearchList, Discard, TimerId) ->
+    ?LOG("wait_rsp_iter1 target: ~p sl:~p discard:~p~n", [Target, SearchList, Discard]),
     receive 
 	{KRef, ?FIND_NODE_RSP, Msg} ->
+	    ?LOG("find node rsp:~p~n", [Msg]),
 	    case find_iter_stop(Msg, SearchList) of
 		true ->	% select the k un-queried nodes send find_node msg
+		    ?LOG("stop find iter :~p~n", [SearchList]),
 		    KNodes = kad_searchlist:closest(?K, true, SearchList),
 		    {_Lives, _Failed} = send_find_to_nodes(?FIND_NODE, KRef, Target, KNodes),
 		    NewNodes = wait_k_rsp(?FIND_NODE_RSP, length(KNodes), SearchList),
@@ -271,6 +274,7 @@ wait_rsp_iter1(KRef, Target, SearchList, Discard, TimerId) ->
 		    Ret = kad_searchlist:closest(?K, false, SL2),
 		    {value, Ret};
 		false -> % continue request to get closest nodes
+		    ?LOG("continue find iter :~p~n", [SearchList]),
 		    SL2 = add_searchlist(Msg, SearchList),
 		    ANodes = kad_searchlist:closest(?A, true, SL2),
 		    send_find_to_nodes(?FIND_NODE, KRef, Target, ANodes, Discard),		    
