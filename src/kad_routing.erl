@@ -180,7 +180,8 @@ do_closest(Node, N, #state{buckets = Buckets, actives = Actives} = States) ->
 	{'EXIT', {badarg, _}} ->
 	   do_closest1(Actives, Buckets, N, [], 0);
 	{I, B} ->
-	    Acc1 = lists:sublist(B, N),
+	    %Acc1 = lists:sublist(B, N),
+		Acc1 = get_exclude_self(N, Node, B),		
 	    AccN1 = length(Acc1),
 	    if AccN1 =:= N ->
 		    {AccN1, Acc1};
@@ -271,3 +272,17 @@ start_refresh_timer() ->
 	    ?LOG("start the timer:apply_interval error\n"),
 	    exit(Reason)
     end.
+
+%% get n node from list, exclude self
+get_exclude_self(N, Node, L) ->
+	L2 = 
+	case lists:member(Node, L) of
+		true ->
+			lists:keydelete(Node#kad_contact.id, #kad_contact.id, L);
+		false ->
+			L
+	end,
+	lists:sublist(L2, N).
+			
+			
+			
