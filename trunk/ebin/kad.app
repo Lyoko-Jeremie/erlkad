@@ -16,7 +16,7 @@
 	      kad_util
 	      ]},
    {registered, [kad_sup, kad_node]},
-   {application, [kernel, stdlib, sasl, crypto, inets]},
+   {applications, [kernel, stdlib, sasl, crypto, inets]},
    {mod, {kad, []}},
    {env, [{ip, "127.0.0.1"}]}
    ]}.
