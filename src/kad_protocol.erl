@@ -111,8 +111,6 @@ parse_data(?STORE, <<Key:160/bits, Data/bytes>>) ->
     {Key, Data};
 parse_data(?FIND_NODE, <<Key:160/bits>>) ->
     Key;
-    Key;
-parse_data(?FIND_VALUE, <<Key:160/bits>>) ->p
 parse_data(?DELETE, <<Key:160/bits>>) ->
     Key;
 
